@@ -1,0 +1,244 @@
+/* ============================================== */
+/* === LAYOUT UTAMA & DASAR === */
+/* ============================================== */
+.account-page {
+    display: flex;
+    font-family: 'Poppins', sans-serif;
+    background-color: #ffffff;
+    min-height: 100vh;
+    color: #1a222e;
+}
+
+/* ============================================== */
+/* === SIDEBAR NAVIGASI === */
+/* ============================================== */
+.account-sidebar {
+    width: 400px;
+    border-right: 1px solid #e0e0e0;
+    padding: 40px 20px;
+    flex-shrink: 0;
+}
+
+.user-greeting {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 40px;
+}
+
+.user-avatar {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background-color: #008080;
+    color: white;
+    display: grid;
+    place-items: center;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.user-greeting h2 {
+    font-size: 1.8rem;
+    margin: 0;
+    font-weight: 600;
+}
+
+.account-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    font-size: 1.2rem;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+}
+
+.nav-item:hover {
+    background-color: #f0f4f8;
+}
+
+.nav-item.active {
+    background-color: #f0f4f8;
+    font-weight: 600;
+}
+
+/* ============================================== */
+/* === KONTEN UTAMA (KANAN) === */
+/* ============================================== */
+.account-content {
+    flex-grow: 1;
+    padding: 40px 60px;
+    margin: 0 0px 200px; 
+}
+
+.personalh1 {
+    margin-left: -80px;
+    margin-bottom: 1px;
+    font-size: 2.8rem;
+    font-weight: 600;
+    width: 1000px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 1.2rem;
+}
+
+.info-item label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #1a222e;
+}
+
+.info-item span {
+    color: #6c757d;
+}
+
+.action-link {
+    font-weight: 600;
+    color: #1a222e;
+    text-decoration: underline;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1rem;
+    padding: 0;
+}
+
+/* ============================================== */
+/* === FORMULIR EDIT === */
+/* ============================================== */
+.edit-form {
+    padding: 20px;
+    background-color: #f9fafb;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    margin: 20px 0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.edit-form > label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.form-inputs {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.input-group {
+    flex: 1;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.save-button {
+    background-color: #008080;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.save-button:hover {
+    background-color: #006666;
+}
+
+.cancel-link {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+}
+
+/* ============================================== */
+/* === RESPONSIVE (UNTUK TABLET & MOBILE) === */
+/* ============================================== */
+@media (max-width: 992px) {
+    .account-page {
+        flex-direction: column;
+    }
+
+    .account-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 20px;
+    }
+
+    .user-greeting h2 {
+        font-size: 1.5rem; /* Perkecil font sapaan */
+    }
+
+    .account-nav {
+        font-size: 1rem; /* Perkecil font menu navigasi */
+        gap: 10px;
+    }
+    
+    .account-content {
+        padding: 30px 20px;
+    }
+    
+    /* Perbaikan paling penting untuk judul */
+    .personalh1 {
+        width: auto;      /* Hapus lebar tetap */
+        margin-left: 0;   /* Hapus margin negatif */
+        font-size: 2rem;  /* Perkecil font judul */
+        text-align: left;
+    }
+
+    .info-item {
+        font-size: 1rem; /* Perkecil font di daftar informasi */
+    }
+
+    .form-inputs {
+        flex-direction: column;
+    }
+}

@@ -1,53 +1,89 @@
-from datetime import datetime
 from flask import Flask, request, jsonify
+from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
+from db import get_connection
+import json
 
 app = Flask(__name__)
+CORS(app)
 
-@app.get("/hello")
-def hello():
-    name = request.args.get("name", "World")
-    return jsonify(message=f"Hello, {name}!")
-
-@app.get("/status")
-def status():
-    return jsonify(
-        app="prak1",
-        version="1.0",
-        server_time=datetime.now().isoformat()
-    )
-
-if __name__ == "__main__":
-    app.run(debug=True)
-
-@app.post("/students")
-def create_student():
-    # Pastikan Body Bertipe JSON
-    payload = request.get_json(silent=True)
-    if payload is None:
-        return jsonify(error="Invalid or missing JSON body"), 400
-
-    nim = payload.get("nim")
-    name = payload.get("name")
-
-    # Validasi Sederhana
-    if not nim or not name:
-        return jsonify(error="Fields 'nim' and 'name' are required"), 422
-    if nim in students:
-        return jsonify(error="NIM already exists"), 409
-    
-    students[nim] = {"nim": nim, "name": name}
-    return jsonify(student[nim]), 201 # 201 Created
-
-@app.get("/students")
-def list_students():
-    return jsonify(list(students.values()))
-
-@app.get("/students/<nim>")
-def get_student(nim):
-    data = students.get(nim)
-    if not data:
-        return jsonify(error="Student not found"), 40
+# DESTINATIONS
+@app.route("/api/destinations", methods=["GET"])
+def get_destinations():
+    with open("destinations.json", "r", encoding="utf-8") as file:
+        data = json.load(file)
     return jsonify(data)
 
+# ---------------------------------------
+# REGISTER
+# ---------------------------------------
+@app.route("/api/register", methods=["POST"])
+def register():
+    data = request.json
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        return jsonify({"status": "error", "message": "Missing fields"}), 400
+
+    hashed = generate_password_hash(password)
+
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # cek apakah email sudah terdaftar
+    cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
+    exist = cursor.fetchone()
+
+    if exist:
+        return jsonify({"status": "error", "message": "Email already exists"}), 400
+
+    # insert user baru
+    cursor.execute("""
+        INSERT INTO users (name, email, password, role)
+        VALUES (%s, %s, %s, %s)
+    """, (email, email, hashed, "user"))
+
+    conn.commit()
+
+    return jsonify({"status": "ok", "message": "Register success"}), 201
+
+
+# ---------------------------------------
+# LOGIN
+# ---------------------------------------
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.json
+    email = data.get("email")
+    password = data.get("password")
+
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
+    user = cursor.fetchone()
+
+    if not user:
+        return jsonify({"status": "error", "message": "Email not found"}), 401
+
+    if not check_password_hash(user["password"], password):
+        return jsonify({"status": "error", "message": "Wrong password"}), 401
+
+    return jsonify({
+        "status": "ok",
+        "message": "Login success",
+        "user": {
+            "user_id": user["user_id"],
+            "email": user["email"],
+            "name": user["name"],
+            "role": user["role"]
+        }
+    }), 200
+
+
+# ---------------------------------------
+# RUN
+# ---------------------------------------
 if __name__ == "__main__":
     app.run(debug=True)

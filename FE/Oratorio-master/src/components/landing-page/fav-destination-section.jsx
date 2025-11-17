@@ -1,37 +1,30 @@
-import React from 'react';
-import DestinationCard from './destination-section'; // Pastikan nama file ini benar
-import './fav-destination-section.css';
-
-// 1. Impor setiap gambar dari folder assets
-import imgKresek from '../../assets/images/fav-dest-section-monumen-kresek.jpg';
-import imgMonas from '../../assets/images/fav-dest-section-tugu-monas.jpg';
-import imgTugu from '../../assets/images/fav-dest-section-tugu-jogja.jpg';
-import imgJamGadang from '../../assets/images/fav-dest-section-jam-gadang.jpg';
-import imgBorobudur from '../../assets/images/fav-dest-section-candi-borobudur.jpg';
-import imgPrambanan from '../../assets/images/fav-dest-section-candi-prambanan.jpg';
-
-// 2. Gunakan variabel gambar yang sudah diimpor, bukan string
-const destinationsData = [
-  { name: "Monumen Kresek", image: imgKresek },
-  { name: "Monas", image: imgMonas },
-  { name: "Tugu Yogyakarta", image: imgTugu },
-  { name: "Jam Gadang", image: imgJamGadang },
-  { name: "Candi Borobudur", image: imgBorobudur },
-  { name: "Candi Prambanan", image: imgPrambanan },
-];
+import React, { useEffect, useState } from "react";
+import DestinationCard from "./destination-section";
+import "./fav-destination-section.css";
 
 function FavoriteDestinationsSection() {
+  const [destinations, setDestinations] = useState([]);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/destinations")
+      .then((res) => res.json())
+      .then((data) => setDestinations(data))
+      .catch((err) => console.error("Error fetching:", err));
+  }, []);
+
   return (
     <section className="fav-destinations-section">
       <div className="section-container">
         <h2 className="section-title">Destinasi Favorit</h2>
+
         <div className="destinations-grid">
-          {destinationsData.map((destination, index) => (
+          {destinations.map((item, index) => (
             <DestinationCard
               key={index}
-              name={destination.name}
-              // 3. Kirim variabel gambar, bukan string path
-              imageSrc={destination.image} 
+              name={item.name}
+              imageSrc={item.image_url}
+              location={item.location}
+              description={item.description}
             />
           ))}
         </div>

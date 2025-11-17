@@ -1,4 +1,5 @@
 import React from 'react';
+import { AuthProvider } from "./context/AuthContext";
 import './App.css';
 import './index';
 // Perbaikan ada di baris ini
@@ -12,6 +13,7 @@ import Dashboard from './pages/dashboard';
 import ArPage from './pages/ar';
 import VrPage from './pages/vr';
 import History from './pages/history';
+import ProfilePage from './pages/profile';
 import Footer from './components/all-page/footer-page/footer';
 
 // IMPORT SEMUA HALAMAN & LAYOUT UNTUK ADMIN
@@ -23,30 +25,33 @@ import HistoryPage from './pages/admin/HistoryPage';
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          {/* Rute untuk Halaman Publik */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/ar" element={<ArPage />} />
-          <Route path="/vr" element={<VrPage />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/footer" element={<Footer />} />
+    <AuthProvider>
+      <Router>
+        <div className="App">
+          <Routes>
+            {/* Rute untuk Halaman Publik */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/ar" element={<ArPage />} />
+            <Route path="/vr" element={<VrPage />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/Profile" element={<ProfilePage />} />
+            <Route path="/footer" element={<Footer />} />
 
-          {/* RUTE UNTUK ADMIN DASHBOARD */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="content" element={<ContentPage />} />
-            <Route path="users" element={<UsersPage />} />
-            <Route path="history" element={<HistoryPage />} />
-            <Route index element={<Navigate to="dashboard" />} />
-          </Route>
-        </Routes>
-      </div>
-    </Router>
+            {/* RUTE UNTUK ADMIN DASHBOARD */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="content" element={<ContentPage />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="history" element={<HistoryPage />} />
+              <Route index element={<Navigate to="dashboard" />} />
+            </Route>
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 

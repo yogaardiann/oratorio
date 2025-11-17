@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "name": "Candi Borobudur",
+    "location": "Magelang, Jawa Tengah",
+    "description": "Candi Buddha terbesar di dunia dan situs warisan dunia UNESCO.",
+    "image_url": "../../assets/images/fav-dest-section-candi-borobudur.jpg"
+  },
+  {
+    "id": 2,
+    "name": "Candi Prambanan",
+    "location": "Sleman, Yogyakarta",
+    "description": "Kompleks candi Hindu terbesar di Indonesia.",
+    "image_url": "../../assets/images/fav-dest-section-candi-prambanan.jpg"
+  },
+  {
+    "id": 3,
+    "name": "Monumen Nasional",
+    "location": "Jakarta Pusat",
+    "description": "Tugu peringatan perjuangan Indonesia.",
+    "image_url": "static/images/fav-dest-section-tugu-monas.jpg"
+  }
+]
