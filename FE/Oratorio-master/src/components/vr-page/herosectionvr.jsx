@@ -1,34 +1,43 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './herosectionvr.css';
-import slideImage from '../../assets/images/fav-dest-section-candi-borobudur.jpg'; // Pastikan path gambar ini benar
 
-const VrHeroSection = () => {
+// 1. Terima 'data' sebagai props dari komponen induk (VrPage)
+const VrHeroSection = ({ data }) => {
     const [currentSlide, setCurrentSlide] = useState(0);
+    const navigate = useNavigate();
 
+    // 2. Buat konten slide menjadi dinamis menggunakan 'data'
     const slides = [
         {
             type: 'text',
-            title: "Masuki Dunia Lain, Jelajahi Dunia dengan Virtual Reality",
-            subtitle: "Pilih Cara Anda Menjelajah Dunia dengan Virtual Reality dan Ikuti Tutorial nya untuk Pengalaman Terbaik!",
+            // Gunakan nama destinasi dari 'data'
+            title: `${data.name} - Virtual Reality`, 
+            subtitle: `Pilih cara Anda menjelajahi ${data.name} dan ikuti tutorialnya untuk pengalaman terbaik!`,
         },
         {
             type: 'image',
-            image: slideImage,
+            // Gunakan gambar thumbnail dari 'data'
+            image: data.thumbnail, 
+            caption: `Tampilan 360° untuk ${data.name}`,
         },
     ];
 
-    const nextSlide = () => setCurrentSlide(1);
-    const prevSlide = () => setCurrentSlide(0);
+    const nextSlide = () => setCurrentSlide(currentSlide === 1 ? 0 : 1);
+    const prevSlide = () => setCurrentSlide(currentSlide === 0 ? 1 : 0);
 
+    const handleBack = () => {
+        navigate('/dashboard'); // Arahkan kembali ke dashboard
+    };
+
+    // Struktur JSX di bawah ini tidak diubah, hanya kontennya yang menjadi dinamis
     return (
         <section className="hero-slider">
-            <button className="back-button">Kembali</button>
+            <button className="back-button" onClick={handleBack}>Kembali</button>
 
-            {/* Panah Navigasi */}
             <div className="arrow left-arrow" onClick={prevSlide}>&#10094;</div>
             <div className="arrow right-arrow" onClick={nextSlide}>&#10095;</div>
 
-            {/* Konten Slide */}
             <div className="slide-container">
                 {slides.map((slide, index) => (
                     <div key={index} className={index === currentSlide ? 'slide active' : 'slide'}>
@@ -40,7 +49,7 @@ const VrHeroSection = () => {
                         )}
                         {slide.type === 'image' && (
                             <div className="image-content">
-                                <img src={slide.image} alt="AR preview" className="slide-image-inner" />
+                                <img src={slide.image} alt={`Tampilan ${data.name}`} className="slide-image-inner" />
                                 <span>{slide.caption}</span>
                             </div>
                         )}

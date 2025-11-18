@@ -17,13 +17,17 @@
   display: none;
 }
 
+.search-input-desktop {
+  border-radius: 20px;
+}
+
 .mobile-view {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 8px 16px;
   color: #000;
-  font-size: 1rem;
+  font-size: 1rem;  
 }
 
 /* --- STYLE UNTUK DESKTOP (Layar 768px ke atas) --- */

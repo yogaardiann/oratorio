@@ -1,39 +1,40 @@
 import React from "react";
+// 1. Impor komponen Link dari react-router-dom
+import { Link } from 'react-router-dom';
 import "./ar-torio-section.css";
 
-// Import gambar lokal dari assets
-import imgKresek from "../../assets/images/fav-dest-section-monumen-kresek.jpg";
-import imgMonas from "../../assets/images/fav-dest-section-tugu-monas.jpg";
+// (Import gambar Anda tetap sama)
 import imgTugu from "../../assets/images/fav-dest-section-tugu-jogja.jpg";
 import imgJamGadang from "../../assets/images/fav-dest-section-jam-gadang.jpg";
+import imgKresek from "../../assets/images/fav-dest-section-monumen-kresek.jpg";
 import imgBorobudur from "../../assets/images/fav-dest-section-candi-borobudur.jpg";
-import imgPrambanan from "../../assets/images/fav-dest-section-candi-prambanan.jpg";
 
 function ARTorioSection() {
   const destinations = [
     {
-      id: 3,
+      // 2. Tambahkan 'slug' sebagai ID unik untuk URL
+      slug: 'tugu-yogyakarta', 
       image: imgTugu,
       title: "Tugu Yogyakarta",
       location: "D.I. Yogyakarta",
     },
     {
-      id: 4,
+      slug: 'jam-gadang',
       image: imgJamGadang,
       title: "Jam Gadang",
       location: "Bukittinggi, Sumatera Barat",
     },
     {
-      id: 5,
+      slug: 'monumen-kresek',
       image: imgKresek,
       title: "Monumen Kresek",
       location: "Madiun, Jawa Timur",
     },
     {
-      id: 6,
-      image: imgPrambanan,
-      title: "Candi Prambanan",
-      location: "Sleman, D.I. Yogyakarta",
+      slug: 'candi-borobudur',
+      image: imgBorobudur,
+      title: "Candi Borobudur",
+      location: "Magelang, D.I. Yogyakarta",
     },
   ];
 
@@ -47,12 +48,16 @@ function ARTorioSection() {
 
       <div className="ar-card-container">
         {destinations.map((item) => (
-          <div key={item.id} className="ar-card">
-            <img src={item.image} alt={item.title} className="ar-image" />
-            <div className="ar-card-content">
-              <p className="ar-location">📍 {item.title}, {item.location}</p>
+          // 3. Bungkus seluruh kartu dengan komponen <Link>
+          // Gunakan slug untuk membuat URL dinamis
+          <Link to={`/ar/${item.slug}`} key={item.slug} className="ar-card-link">
+            <div className="ar-card">
+              <img src={item.image} alt={item.title} className="ar-image" />
+              <div className="ar-card-content">
+                <p className="ar-location">📍 {item.title}, {item.location}</p>
+              </div>
             </div>
-          </div>
+          </Link>
         ))}
         <div className="arrow-button">›</div>
       </div>

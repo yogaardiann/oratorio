@@ -11,7 +11,11 @@ import LoginPage from './pages/login';
 import RegisterPage from './pages/register';
 import Dashboard from './pages/dashboard';
 import ArPage from './pages/ar';
+import ARScanPage from './pages/ScanARPage';
 import VrPage from './pages/vr';
+import Scan360Page from './pages/Scan360Page';
+import ArGalleryPage from './pages/ARGalleryPage';
+import VrGalleryPage from './pages/VRGalleryPage';
 import History from './pages/history';
 import ProfilePage from './pages/profile';
 import Footer from './components/all-page/footer-page/footer';
@@ -34,8 +38,12 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/ar" element={<ArPage />} />
-            <Route path="/vr" element={<VrPage />} />
+            <Route path="/ar" element={<ArGalleryPage />} />
+            <Route path="/vr" element={<VrGalleryPage />} />
+            <Route path="/ar/:destinationId" element={<ArPage />} />
+            <Route path="/scan" element={<ARScanPage />} />
+            <Route path="/vr/:destinationId" element={<VrPage />} />
+            <Route path="/scan360" element={<Scan360Page />} />
             <Route path="/history" element={<History />} />
             <Route path="/Profile" element={<ProfilePage />} />
             <Route path="/footer" element={<Footer />} />

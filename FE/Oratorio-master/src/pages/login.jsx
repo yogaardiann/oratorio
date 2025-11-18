@@ -1,10 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react"; // 1. Import useContext
+import { useNavigate } from "react-router-dom"; // 2. Import useNavigate
+import { AuthContext } from "../context/AuthContext"; // 3. Import AuthContext
 import "../pages/css/auth.css";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+
+  // 4. Ambil fungsi 'login' dari context
+  const { login } = useContext(AuthContext);
+  // 5. Siapkan navigate untuk pindah halaman
+  const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -26,16 +33,20 @@ function LoginPage() {
       if (response.ok) {
         setMessage("Login berhasil!");
 
-        // simpan user ke localStorage
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            email: data.email,   // ambil dari backend
-            name: data.name || "",  // optional jika backend punya
-          })
-        );
+        // --- INI DIA PERUBAHANNYA ---
+        
+        // 6. Panggil fungsi 'login' dari context
+        // 'data.user' berisi objek user dari Flask (sesuai app.py kamu)
+        login(data.user); 
 
-        window.location.href = "/dashboard";
+        // 7. Pindahkan baris ini ke dalam 'if'
+        // Gunakan 'navigate' untuk pindah halaman (cara React)
+        navigate("/"); // atau "/dashboard" sesuai keinginanmu
+
+        // HAPUS KODE LAMA INI:
+        // localStorage.setItem(...)
+        // window.location.href = "/dashboard";
+
       } else {
         setMessage(data.message || "Login gagal");
       }

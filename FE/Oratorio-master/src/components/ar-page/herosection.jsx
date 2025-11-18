@@ -1,35 +1,44 @@
 import React, { useState } from 'react';
-import './herosection.css';
-import slideImage from '../../assets/images/fav-dest-section-candi-borobudur.jpg'; // Pastikan path gambar ini benar
+import { useNavigate } from 'react-router-dom';
+import './herosection.css'; // Pastikan path CSS ini benar
 
-const HeroSection = () => {
+// 1. Impor gambar spesifik untuk slide kedua
+// Saya menggunakan placeholder dari Unsplash yang mirip dengan desain Anda.
+// Ganti dengan path lokal Anda jika sudah punya gambarnya.
+const arSlideImage = 'https://images.unsplash.com/photo-1639762681057-408e52192e50?q=80&w=1974&auto=format&fit=crop';
+
+const HeroSection = ({ data }) => {
     const [currentSlide, setCurrentSlide] = useState(0);
+    const navigate = useNavigate();
 
     const slides = [
         {
             type: 'text',
-            title: "Hadirkan Dunia Virtual ke Ruangan Anda Dengan Augmented Reality",
-            subtitle: "Ikuti Tutorial di bawah ini untuk Mulai Mengakses Dunia Virtual 3D dengan Augmented Reality Anda!",
+            title: `${data.name} - Augmented Reality`,
+            subtitle: "Ikuti tutorial di bawah untuk memulai petualangan AR Anda!",
         },
         {
             type: 'image',
-            image: slideImage,
-            caption: "Unduh QR",
+            // 2. Gunakan gambar yang sudah diimpor, bukan data.thumbnail
+            image: arSlideImage, 
+            caption: `Unduh QR`,
         },
     ];
 
-    const nextSlide = () => setCurrentSlide(1);
-    const prevSlide = () => setCurrentSlide(0);
+    const nextSlide = () => setCurrentSlide(currentSlide === 1 ? 0 : 1);
+    const prevSlide = () => setCurrentSlide(currentSlide === 0 ? 1 : 0);
+
+    const handleBack = () => {
+        navigate('/dashboard');
+    };
 
     return (
         <section className="hero-slider">
-            <button className="back-button">Kembali</button>
+            <button className="back-button" onClick={handleBack}>Kembali</button>
 
-            {/* Panah Navigasi */}
             <div className="arrow left-arrow" onClick={prevSlide}>&#10094;</div>
             <div className="arrow right-arrow" onClick={nextSlide}>&#10095;</div>
 
-            {/* Konten Slide */}
             <div className="slide-container">
                 {slides.map((slide, index) => (
                     <div key={index} className={index === currentSlide ? 'slide active' : 'slide'}>
@@ -41,7 +50,7 @@ const HeroSection = () => {
                         )}
                         {slide.type === 'image' && (
                             <div className="image-content">
-                                <img src={slide.image} alt="AR preview" className="slide-image-inner" />
+                                <img src={slide.image} alt={`Tampilan AR ${data.name}`} className="slide-image-inner" />
                                 <span>{slide.caption}</span>
                             </div>
                         )}

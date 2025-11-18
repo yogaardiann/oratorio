@@ -1,74 +1,81 @@
 .features-section {
-  padding: 6rem 2rem;
-  background-color: var(--background-color);
-  color: var(--text-color);
+    padding: 6rem 2rem;
+    background-color: var(--background-color);
+    color: var(--text-color);
 }
 
 .section-container {
-  max-width: 1100px;
-  margin: 0 auto;
+    max-width: 1100px;
+    margin: 0 auto;
+    
 }
 
 .section-title {
-  text-align: center;
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1c1c1c;
-  margin-bottom: 4rem;
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 0;
+    color: #1c1c1c;
+    margin-bottom: 4rem;
 }
 
 /* FLEXBOX utama */
 .features-flex {
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-  flex-wrap: wrap;
-  gap: 3rem;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 3rem;
 }
 
 /* Desktop: 2 kolom */
 .features-flex > * {
-  flex: 1 1 calc(50% - 3rem);
-  max-width: 480px;
+    flex: 1 1 calc(50% - 3rem);
+    max-width: 480px;
+
+    /* === ANIMASI BARU === */
+    /* Kondisi awal: tidak terlihat dan sedikit di bawah */
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
 }
 
-/* Tablet */
+/* Kondisi akhir: terlihat di posisi normal */
+.features-flex > *.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+/* === AKHIR ANIMASI === */
+
+
+/* Jeda animasi agar muncul satu per satu */
+.features-flex > *:nth-child(1) { transition-delay: 0.1s; }
+.features-flex > *:nth-child(2) { transition-delay: 0.2s; }
+.features-flex > *:nth-child(3) { transition-delay: 0.3s; }
+.features-flex > *:nth-child(4) { transition-delay: 0.4s; }
+
+
+/* Media Queries (Tablet & Mobile) tidak berubah */
 @media (max-width: 1023px) {
-  .features-flex {
-    flex-direction: column;
-    align-items: center;
-    gap: 2rem;
-  }
-  .features-flex > * {
-    flex: 1 1 100%;
-    max-width: 90%;
-  }
+    .features-flex {
+        flex-direction: column;
+        align-items: center;
+        gap: 2rem;
+    }
+    .features-flex > * {
+        flex: 1 1 100%;
+        max-width: 90%;
+    }
 }
 
-/* Mobile */
 @media (max-width: 768px) {
-  .section-title {
-    font-size: 2rem;
-  }
-
-  .features-section {
-    padding: 4rem 1rem;
-  }
-
-  .features-flex {
-    flex-direction: column;
-    align-items: center;
-    gap: 2rem;
-  }
-
-  .features-flex > * {
-    flex: 1 1 100%;
-    max-width: 100%;
-  }
+    .section-title { font-size: 2rem; }
+    .features-section { padding: 4rem 1rem; }
+    .features-flex { flex-direction: column; align-items: center; gap: 2rem; }
+    .features-flex > * { flex: 1 1 100%; max-width: 100%; }
 }
 
 .login-container {
-  background-color: var(--card-bg);
-  color: var(--text-color);
-  transition: all 0.3s ease;
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    transition: all 0.3s ease;
 }

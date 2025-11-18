@@ -14,6 +14,7 @@ def get_destinations():
         data = json.load(file)
     return jsonify(data)
 
+
 # ---------------------------------------
 # REGISTER
 # ---------------------------------------
@@ -22,6 +23,7 @@ def register():
     data = request.json
     email = data.get("email")
     password = data.get("password")
+    name = data.get("name") or email.split("@")[0]
 
     if not email or not password:
         return jsonify({"status": "error", "message": "Missing fields"}), 400
@@ -42,7 +44,7 @@ def register():
     cursor.execute("""
         INSERT INTO users (name, email, password, role)
         VALUES (%s, %s, %s, %s)
-    """, (email, email, hashed, "user"))
+    """, (name, email, hashed, "user"))
 
     conn.commit()
 
@@ -70,13 +72,23 @@ def login():
     if not check_password_hash(user["password"], password):
         return jsonify({"status": "error", "message": "Wrong password"}), 401
 
+    # normalisasi nama
+    name_parts = user["name"].split(" ")
+    first_name = name_parts[0]
+    last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+    
+    # --- PERUBAHAN DI SINI ---
+    # Logika username sekarang SELALU mengambil dari email
+    username = user["email"].split("@")[0] 
+    # ---------------------------
+
     return jsonify({
         "status": "ok",
         "message": "Login success",
         "user": {
             "user_id": user["user_id"],
             "email": user["email"],
-            "name": user["name"],
+            "username": username,    # Ini sekarang akan mengirim "tes11"
             "role": user["role"]
         }
     }), 200

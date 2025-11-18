@@ -1,48 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import './stepsectionvr.css';
 
+import metaQuestImage from '../../assets/images/meta-quest.webp';
+import oculusQuestImage from '../../assets/images/oculus.webp';
 
-import metaQuestImage from '../../assets/images//meta-quest.webp';
-import oculusQuestImage from '../../assets/images//oculus.webp';
-
-const VrStepsSection = () => {
-    // State untuk melacak mode pilihan pengguna
+// 1. Terima 'data' sebagai props dari VrPage
+const VrStepsSection = ({ data }) => {
     const [selectedMode, setSelectedMode] = useState(null);
-    // State baru untuk mengetahui apakah browser mendukung VR
     const [isVrSupported, setIsVrSupported] = useState(false);
 
-    // Cek dukungan VR sekali saat komponen pertama kali dimuat
     useEffect(() => {
-        // 'navigator.xr' adalah tanda pengenal browser VR
         if (navigator.xr && navigator.xr.isSessionSupported('immersive-vr')) {
             navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
                 setIsVrSupported(supported);
             });
         }
-    }, []); // Array kosong berarti efek ini hanya berjalan sekali
+    }, []);
 
-    // Fungsi utama yang berisi LOGIKA PINTAR
     const handleStartVR = () => {
         if (!selectedMode) {
             alert("Silakan pilih mode tampilan terlebih dahulu!");
             return;
         }
 
-        // KASUS 1: Pengguna memilih 360 View (berjalan di semua perangkat)
+        // Di sini, kita bisa menggunakan 'data.vr.scene' di masa depan
         if (selectedMode === '360 View') {
-            alert("Mengarahkan ke halaman 360 View...");
-            // TODO: Ganti dengan navigasi ke halaman/komponen 360 Viewer Anda
-            // Contoh: window.location.href = '/viewer-360';
+            alert(`Mengarahkan ke halaman 360 View untuk ${data.name}...`);
+            // Contoh: window.location.href = data.vr.scene;
         }
 
-        // KASUS 2: Pengguna memilih VR Imersif
         if (selectedMode === 'VR Imersif') {
             if (isVrSupported) {
-                alert("Memulai Sesi WebXR Imersif...");
-                // TODO: Ganti dengan logika untuk memulai sesi WebXR
-                // Ini biasanya melibatkan library seperti A-Frame atau Three.js
+                alert(`Memulai Sesi WebXR Imersif untuk ${data.name}...`);
+                // Di sini Anda akan memulai sesi WebXR dengan scene dari 'data.vr.scene'
             } else {
-                // Jika perangkat tidak mendukung VR, beri tahu pengguna
                 alert("Mode VR Imersif hanya dapat diakses melalui browser di dalam headset VR.");
             }
         }
@@ -51,16 +42,17 @@ const VrStepsSection = () => {
     return (
         <section className="vr-steps-container">
             <div className="content-wrapper">
-                <h2 className="section-title">Pilihan Mode</h2>
+                {/* 2. Gunakan 'data.name' untuk membuat judul lebih spesifik */}
+                <h2 className="section-title">Panduan Memulai VR untuk {data.name}</h2>
+                
                 <div className="mode-selection-grid">
-                    {/* === KARTU MODE 360 DENGAN DESKRIPSI BARU === */}
                     <div
                         className={`mode-card ${selectedMode === '360 View' ? 'selected' : ''}`}
                         onClick={() => setSelectedMode('360 View')}
                     >
                         <h3>Mode Tampilan 360° Web View</h3>
                         <p>
-                            Cara termudah merasakan dunia virtual, seperti melihat melalui jendela ajaib. Anda akan menjadi seorang pengamat (observer) yang bisa melihat ke segala arah namun tidak bisa berjalan-jalan.
+                            Cara termudah merasakan {data.name}, seperti melihat melalui jendela ajaib. Anda akan menjadi seorang pengamat (observer).
                         </p>
                         <ol className="steps-list">
                             <li>Klik untuk memilih mode ini.</li>
@@ -69,14 +61,13 @@ const VrStepsSection = () => {
                         </ol>
                     </div>
 
-                    {/* === KARTU MODE VR IMERSIF DENGAN DESKRIPSI BARU === */}
                     <div
                         className={`mode-card ${selectedMode === 'VR Imersif' ? 'selected' : ''}`}
                         onClick={() => setSelectedMode('VR Imersif')}
                     >
                         <h3>Mode VR Imersif</h3>
                         <p>
-                            Pengalaman VR sesungguhnya di mana Anda "masuk" ke dalam dunia virtual. Rasakan sensasi kehadiran, berjalan-jalan, dan melihat skala ruang yang realistis.
+                            Pengalaman VR sesungguhnya di mana Anda "masuk" ke dalam {data.name}. Rasakan sensasi kehadiran dan skala ruang yang realistis.
                         </p>
                         <ol className="steps-list">
                             <li>Buka situs ini dari Browser di dalam Headset VR Anda.</li>

@@ -20,6 +20,7 @@ export function AuthProvider({ children }) {
     const logout = () => {
         setUser(null);
         localStorage.removeItem("user");
+        window.location.href = "/login";
     };
 
     return (

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react'; // 1. Import useContext
 import './css/profile.css';
 import { FiUser } from 'react-icons/fi';
+import { AuthContext } from '../context/AuthContext'; // 1. Import AuthContext
 
 const ProfilePage = () => {
     const [editMode, setEditMode] = useState({
@@ -11,39 +12,33 @@ const ProfilePage = () => {
         hometown: false
     });
 
+    // 2. Ambil 'user' dan 'login' (untuk update) dari AuthContext
+    const { user, login } = useContext(AuthContext); 
+
     const [currentUser, setCurrentUser] = useState(null);
     const [formData, setFormData] = useState(null);
 
+    // 3. Perbarui useEffect untuk bergantung pada 'user' dari Context
     useEffect(() => {
-        const u = localStorage.getItem("user");
-        if (!u) {
-            window.location.href = "/login";
-            return;
+        // Jika 'user' dari context ada (sudah login dan dimuat)
+        if (user) {
+            // Normalisasi data user dari context ke state lokal
+            const normalizedUser = {
+                firstName: user.firstName || (user.email ? user.email.split("@")[0] : "User"),
+                lastName: user.lastName || "",
+                username: user.username || (user.email ? user.email.split("@")[0] : "user123"),
+                email: user.email || "",
+                phone: user.phone || "",
+                dob: user.dob || "",
+                hometown: user.hometown || ""
+            };
+
+            setCurrentUser(normalizedUser);
+            setFormData(normalizedUser);
         }
+    }, [user]); // Efek ini akan berjalan setiap kali 'user' dari context berubah
 
-        let userData;
-        try {
-            userData = JSON.parse(u);
-        } catch (err) {
-            console.error("Error parsing user from localStorage:", err);
-            window.location.href = "/login";
-            return;
-        }
-
-        const normalizedUser = {
-            firstName: userData.firstName || (userData.email ? userData.email.split("@")[0] : "User"),
-            lastName: userData.lastName || "",
-            username: userData.username || (userData.email ? userData.email.split("@")[0] : "user123"),
-            email: userData.email || "",
-            phone: userData.phone || "",
-            dob: userData.dob || "",
-            hometown: userData.hometown || ""
-        };
-
-        setCurrentUser(normalizedUser);
-        setFormData(normalizedUser);
-    }, []);
-
+    // Tampilkan null/loading selagi data user dimuat
     if (!currentUser) return null;
 
     const handleEdit = (field) => {
@@ -55,11 +50,14 @@ const ProfilePage = () => {
         setEditMode({ ...editMode, [field]: false });
     };
 
+    // 4. Perbarui handleSave untuk menggunakan fungsi 'login' dari context
     const handleSave = (field) => {
         const updated = formData;
         setCurrentUser(updated);
         setEditMode({ ...editMode, [field]: false });
-        localStorage.setItem("user", JSON.stringify(updated));
+        
+        // Memanggil 'login' akan memperbarui state di AuthContext DAN localStorage
+        login(updated); 
     };
 
     const handleChange = (e) => {
@@ -74,7 +72,8 @@ const ProfilePage = () => {
                     <div className="user-avatar">
                         {currentUser.firstName.charAt(0).toUpperCase()}
                     </div>
-                    <h2>Hello, {currentUser.username}!</h2>
+                    {/* 5. UBAH INI: Ganti teks hardcoded dengan data dari state */}
+                    <h2>Hello {currentUser.username}!</h2>
                 </div>
 
                 <nav className="account-nav">

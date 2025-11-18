@@ -1,140 +1,156 @@
 .arvr-section {
-  padding: 5rem 2rem;
-  background-color: var(--background-color);
-  color: var(--text-color);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6rem;
+    padding: 5rem 2rem;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6rem;
 }
 
 /* === BLOK AR/VR (GRID CROSS ALIGNMENT) === */
 .arvr-block {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto;
-  align-items: center;
-  justify-content: center;
-  gap: 3rem 1px;
-  max-width: 1200px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    align-items: center;
+    justify-content: center;
+    gap: 3rem 1px;
+    max-width: 1200px;
 }
+
+/* ============================================== */
+/* === ANIMASI BARU: MUNCUL SAAT SCROLL === */
+/* ============================================== */
+.animate-on-scroll {
+    /* Kondisi awal: tidak terlihat dan sedikit di bawah */
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+.animate-on-scroll.is-visible {
+    /* Kondisi akhir: terlihat di posisi normal */
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Jeda animasi agar elemen muncul satu per satu */
+.stagger-1 { transition-delay: 0.1s; }
+.stagger-2 { transition-delay: 0.2s; }
+.stagger-3 { transition-delay: 0.3s; }
+.stagger-4 { transition-delay: 0.4s; }
+.stagger-5 { transition-delay: 0.5s; }
+/* ============================================== */
+/* === AKHIR ANIMASI === */
+/* ============================================== */
+
 
 /* === GAMBAR === */
 .arvr-image {
-  display: flex;
-  justify-content: center;
+    display: flex;
+    justify-content: center;
 }
 
 .arvr-image img {
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  object-fit: cover;
-  background-color: var(--background-color);
-  color: var(--text-color);
-  padding: 2.5rem;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    padding: 2.5rem;
 }
 
 /* === KONTEN === */
 .arvr-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
 }
 
 .arvr-title {
-  background-color: var(--background-color);
-  color: var(--text-color);
-  font-size: 1.6rem;
-  font-weight: 700;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-size: 1.6rem;
+    font-weight: 700;
 }
 
 .arvr-desc {
-  background-color: var(--background-color);
-  color: var(--text-color);
-  line-height: 1.6;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
 }
 
 .arvr-spec {
-  background-color: var(--background-color);
-  color: var(--text-color);
-  padding: 1.2rem 1.5rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 10px 10px rgba(0, 0, 0, 0.1);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    padding: 1.2rem 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 10px 10px rgba(0, 0, 0, 0.1);
 }
 
 .arvr-spec h4 {
-  background-color: var(--background-color);
-  color: var(--text-color);
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
 }
 
 .arvr-spec p {
-  background-color: var(--background-color);
-  color: var(--text-color);
-  font-size: 0.95rem;
-  line-height: 1.5;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-size: 0.95rem;
+    line-height: 1.5;
 }
 
 /* === POSISI SILANG === */
-.arvr-block:nth-child(1) {
-  /* AR block */
-  grid-template-areas:
-    "imageVR contentAR"
-    "contentVR imageAR";
-}
-
-.arvr-block:nth-child(2) {
-  /* VR block */
-  display: none; /* tidak perlu, karena kita gabung jadi satu area silang */
+.arvr-block { /* Perbaikan: Hapus :nth-child(1) agar berlaku umum */
+    grid-template-areas:
+        "imageVR contentAR"
+        "contentVR imageAR";
 }
 
 /* === CTA BUTTON === */
 .arvr-cta {
-  margin-top: 2rem;
+    margin-top: 2rem;
 }
 
 .arvr-cta button {
-  background-color: #097061;
-  color: #fff;
-  border: none;
-  padding: 1rem 2rem;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.3s;
+    background-color: #097061;
+    color: #fff;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
 }
 
 .arvr-cta button:hover {
-  background-color: #1c8a79;
+    background-color: #1c8a79;
 }
 
 /* === RESPONSIVE === */
 @media (max-width: 768px) {
-  .arvr-block {
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-  }
+    .arvr-block {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
 
-  .arvr-image img {
-    width: 260px;
-    height: 260px;
-  }
+    .arvr-image img {
+        width: 260px;
+        height: 260px;
+    }
 
-  .arvr-title {
-    text-align: center;
-  }
-
-  .arvr-desc,
-  .arvr-spec {
-    text-align: center;
-  }
+    .arvr-title, .arvr-desc, .arvr-spec {
+        text-align: center;
+    }
 }
 
 .login-container {
-  background-color: var(--card-bg);
-  color: var(--text-color);
-  transition: all 0.3s ease;
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    transition: all 0.3s ease;
 }

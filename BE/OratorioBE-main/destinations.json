@@ -19,5 +19,12 @@
     "location": "Jakarta Pusat",
     "description": "Tugu peringatan perjuangan Indonesia.",
     "image_url": "static/images/fav-dest-section-tugu-monas.jpg"
+  },
+  {
+    "id": 4,
+    "name": "Candi Ceto",
+    "location": "Lawu",
+    "description": "Wisata dan sebagai gerbang pendakian gunung Lawu via Candi Ceto",
+    "image_url": "static/images/fav-dest-section-candi-ceto.jpg"
   }
 ]
