@@ -1,45 +1,45 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import './ARGalleryPage.css'; // We'll create this CSS file next
-import Footer from '../components/all-page/footer-page/footer';
-import { destinations } from '../data/destinations'; // Import your central data source
+import React, { useState, useEffect } from 'react'; // Import React hooks
+import { Link } from 'react-router-dom';            // Import Link untuk navigasi
+import axios from 'axios';                          // Import axios untuk request API
 
-// Import necessary components if they are separate
-// import Header from '../components/all-page/header-page/header'; 
-// import Footer from '../components/all-page/footer-page/footer';
+// ... kode komponen ARGalleryPage Anda di bawah sini ...
+const ARGalleryPage = () => {
 
-const ArGalleryPage = () => {
-    // Convert the destinations object into an array to easily map over it
-    const allDestinations = Object.values(destinations);
+  const [items, setItems] = useState([]);
 
-    return (
-        <div>
-            {/* <Header /> */}
-            <main className="gallery-page-container">
-                <div className="gallery-header">
-                    <h1>AR Interfaces Gallery</h1>
-                    <p>Discover historical sites and artifacts in Augmented Reality. Click on any destination to begin your adventure.</p>
-                </div>
-                <div className="gallery-grid">
-                    {allDestinations.map((item) => (
-                        <Link to={`/ar/${item.id}`} key={item.id} className="gallery-card-link">
-                            <div className="gallery-card">
-                                <img src={item.thumbnail} alt={item.name} className="gallery-card-image" />
-                                <div className="gallery-card-content">
-                                    <h3>{item.name}</h3>
-                                    <p>📍 {item.location}</p>
-                                </div>
-                            </div>
-                        </Link>
-                    ))}
-                </div>
-            </main>
-            {/* <Footer /> */}
-            <div>
-                <Footer />
-            </div>
-        </div>
-    );
+  useEffect(() => {
+    axios.get('http://192.168.110.4:5000/api/wisata')
+      .then(response => {
+          console.log("Data dari API:", response.data); // Cek console browser untuk debug
+          setItems(response.data);
+      })
+      .catch(error => console.error("Error fetching data:", error));
+  }, []);
+
+  return (
+    <div className="gallery-container">
+      <h1>Galeri AR Torio</h1>
+      <div className="grid">
+        {items.map((item) => (
+          <div key={item.id} className="card-item">
+            {/* PERHATIKAN NAMA KOLOM INI: item.marker_image */}
+            <img 
+              src={`http://192.168.110.4:5000/static/uploads/${item.marker_image}`} 
+              alt={item.name} 
+              className="thumbnail"
+              onError={(e) => { e.target.src = "https://via.placeholder.com/150"; }} // Fallback jika gambar error
+            />
+            <h3>{item.name}</h3>
+            <p>{item.location}</p>
+            
+            <Link to={`/ar/${item.id}`} className="btn-detail">
+              Lihat Detail
+            </Link>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 };
 
-export default ArGalleryPage;
+export default ARGalleryPage;

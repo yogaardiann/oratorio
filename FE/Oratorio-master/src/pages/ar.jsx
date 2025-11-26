@@ -1,34 +1,37 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import '../App.css'
-import { useParams } from 'react-router-dom';
-import { destinations } from '../data/destinations'; // Impor data terpusat
+import React, { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import axios from 'axios';
 
-// Impor komponen layout Anda
-// import HeroSection from '../components/ar-page/herosection';
-// import StepsSection from '../components/ar-page/stepsection'; 
-import StepsSections from '../components/ar-page/arpage';
-import Footer from '../components/all-page/footer-page/footer';
+const ArDetailGuidancePage = () => {
+  const { id } = useParams(); // Ambil ID dari URL
+  const [data, setData] = useState(null);
 
-const ArPage = () => {
-    // 1. Ambil ID dari URL (misal: "candi-borobudur")
-    const { destinationId } = useParams();
+  useEffect(() => {
+    axios.get(`http://localhost:5000/api/wisata/${id}`)
+      .then(res => setData(res.data))
+      .catch(err => console.error(err));
+  }, [id]);
 
-    // 2. Cari data destinasi yang sesuai berdasarkan ID
-    const destinationData = destinations[destinationId];
+  if (!data) return <p>Loading...</p>;
 
-    // Jika data tidak ditemukan, tampilkan pesan error
-    if (!destinationData) {
-        return <h1>Destinasi tidak ditemukan!</h1>;
-    }
+  return (
+    <div className="guidance-page">
+      <h1>Panduan AR: {data.name}</h1>
+      <p>{data.description}</p>
+      
+      <div className="steps">
+        <p>1. Klik tombol "Mulai AR Torio" di bawah.</p>
+        <p>2. Arahkan kamera HP Anda ke QR Code yang muncul.</p>
+        <p>3. Izinkan akses kamera pada HP.</p>
+        <p>4. Arahkan kamera HP ke gambar Marker di layar laptop.</p>
+      </div>
 
-    // 3. Render komponen layout dan KIRIM data sebagai props
-    return (
-        <div>
-            <StepsSections data={destinationData} />
-            <Footer />
-        </div>
-    );
+      {/* Tombol Lanjut ke Halaman Scan Desktop */}
+      <Link to={`/scan/${id}`} className="btn-start-ar">
+        Mulai AR Torio
+      </Link>
+    </div>
+  );
 };
 
-export default ArPage;
+export default ArDetailGuidancePage;

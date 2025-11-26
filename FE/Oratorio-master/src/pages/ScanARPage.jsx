@@ -1,88 +1,94 @@
-import React from "react";
-import { ArrowLeft, QrCode, Image } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { QRCodeCanvas } from 'qrcode.react'; 
+import axios from 'axios';
 
-const ARScanPage = () => {
-  const navigate = useNavigate();
+// --- KONFIGURASI PENTING ---
+// SUDAH DIUPDATE SESUAI IPCONFIG ANDA
+const LAPTOP_IP = "192.168.110.4"; 
+const BACKEND_PORT = "5000";
+const FRONTEND_PORT = "3000";
 
-  const markerData = {
-    name: "Candi Borobudur",
-    image: "/assets/marker-placeholder.png", // ubah nanti sesuai file kamu
-  };
+const ScanARPage = () => {
+  const { id } = useParams();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
 
-  const qrData = {
-    link: "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://oratorio-ar-scan",
-  };
+  // URL API Localhost (Untuk Fetch Data di Laptop agar cepat)
+  const LOCAL_API_URL = `http://localhost:${BACKEND_PORT}`;
+  
+  // URL API Public (Untuk Gambar Marker agar sesuai dengan data database)
+  // Kita gunakan localhost juga untuk tampilan laptop agar gambar pasti muncul
+  const IMAGE_BASE_URL = `http://localhost:${BACKEND_PORT}`;
+
+  // URL QR Code (Wajib IP Address agar HP bisa akses)
+  const PUBLIC_QR_URL = `http://${LAPTOP_IP}:${FRONTEND_PORT}/mobile-ar/${id}`;
+
+  useEffect(() => {
+    // Fetch data menggunakan Localhost
+    axios.get(`${LOCAL_API_URL}/api/wisata/${id}`)
+      .then(res => {
+        console.log("Data sukses diambil:", res.data);
+        setData(res.data);
+      })
+      .catch(err => {
+        console.error("Gagal ambil data:", err);
+        setError("Gagal mengambil data. Pastikan backend Flask berjalan.");
+      });
+  }, [id, LOCAL_API_URL]);
+
+  if (error) return <div style={{textAlign: 'center', marginTop: '50px', color: 'red'}}>{error}</div>;
+  if (!data) return <div style={{textAlign: 'center', marginTop: '50px'}}>Loading Data...</div>;
 
   return (
-    <section className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-teal-50 flex flex-col items-center justify-center px-6 py-16 relative overflow-hidden">
-      {/* Background Decorative Blurs */}
-      <div className="absolute top-0 left-0 w-full h-full opacity-10">
-        <div className="absolute top-10 left-10 w-72 h-72 bg-teal-400 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-10 right-10 w-72 h-72 bg-cyan-400 rounded-full blur-3xl"></div>
+    <div className="scan-layout" style={{ display: 'flex', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
+      
+      {/* Sisi Kiri: Marker */}
+      <div className="left-panel" style={{ flex: 1, background: '#f0f0f0', display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column', borderRight: '2px solid #ddd' }}>
+        <h2 style={{marginBottom: '10px'}}>Marker Area</h2>
+        <p style={{marginBottom: '20px', color: '#666'}}>Arahkan kamera HP ke gambar ini</p>
+        
+        {/* Gambar Marker */}
+        <img 
+          src={`${IMAGE_BASE_URL}/static/uploads/${data.marker_image}`} 
+          alt="AR Marker" 
+          style={{ width: '80%', maxWidth: '400px', border: '5px solid #333', borderRadius: '10px', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}
+          onError={(e) => {
+            e.target.onerror = null; 
+            // Fallback teks sederhana jika gambar gagal (tanpa internet)
+            e.target.style.display = 'none';
+            e.target.parentNode.innerHTML += `<div style="width:300px; height:300px; background:#ccc; display:flex; align-items:center; justify-content:center; border:2px dashed #666;">Gambar ${data.marker_image} Tidak Ditemukan</div>`;
+          }}
+        />
+        <p style={{marginTop: '10px', fontSize: '12px', color: '#999'}}>
+            File: {data.marker_image}
+        </p>
       </div>
 
-      {/* Content */}
-      <div className="relative z-10 max-w-6xl w-full">
-        {/* Header Bar */}
-        <div className="flex items-center justify-between mb-12">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-700 to-cyan-700 text-white rounded-full shadow-md hover:shadow-lg transition-transform hover:-translate-x-1"
-          >
-            <ArrowLeft size={20} />
-            Kembali
-          </button>
-
-          <h2 className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-teal-900 to-cyan-900 bg-clip-text text-transparent mb-10">
-            Pindai Marker AR
-          </h2>
-
-          <div className="w-24" /> {/* Spacer agar header center seimbang */}
+      {/* Sisi Kanan: QR Code */}
+      <div className="right-panel" style={{ flex: 1, background: '#fff', display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
+        <h2 style={{marginBottom: '10px'}}>Scan QR Code</h2>
+        <p style={{marginBottom: '30px', color: '#666'}}>Gunakan Google Lens atau Kamera Bawaan</p>
+        
+        {/* QR Code dengan Link IP Address */}
+        <div style={{padding: '20px', background: 'white', borderRadius: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)'}}>
+            <QRCodeCanvas value={PUBLIC_QR_URL} size={256} />
         </div>
-
-        {/* Grid 2 Columns */}
-        <div className="grid md:grid-cols-2 gap-10 items-center">
-          {/* Kiri - Marker */}
-          <div className="bg-white rounded-2xl shadow-xl border-2 border-teal-100 p-14 flex flex-col items-center justify-center hover:border-teal-400 transition-all">
-            <div className="p-4 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl mb-6 shadow-inner">
-              <Image size={48} className="text-teal-600" />
-            </div>
-            <img
-              src={markerData.image}
-              alt={`Marker ${markerData.name}`}
-              className="w-64 h-64 object-contain mb-6"
-            />
-            <h3 className="text-xl font-semibold text-slate-800">
-              Marker: {markerData.name}
-            </h3>
-            <p className="text-slate-600 text-center mt-2">
-              Arahkan kamera HP Anda ke marker ini setelah membuka mode AR.
-            </p>
-          </div>
-
-          {/* Kanan - QR Code */}
-          <div className="bg-white rounded-2xl shadow-xl border-2 border-teal-100 p-11 flex flex-col items-center justify-center hover:border-teal-400 transition-all">
-            <div className="p-4 bg-gradient-to-br from-cyan-50 to-teal-50 rounded-xl mb-6 shadow-inner">
-              <QrCode size={48} className="text-cyan-600" />
-            </div>
-            <img
-              src={qrData.link}
-              alt="AR QR Code"
-              className="w-64 h-64 object-contain mb-6"
-            />
-            <h3 className="text-xl font-semibold text-slate-800">Scan untuk Membuka Kamera AR</h3>
-            <p className="text-slate-600 text-center mt-2">
-              Gunakan kamera HP atau Google Lens untuk memindai kode ini.  
-              Anda akan diarahkan ke tampilan AR yang menampilkan objek 3D dari marker.
-            </p>
-          </div>
+        
+        <p style={{marginTop: '30px', textAlign: 'center'}}>
+          Atau buka link ini di HP:<br/> 
+          <a href={PUBLIC_QR_URL} target="_blank" rel="noreferrer" style={{color: 'blue', textDecoration: 'none', fontWeight: 'bold'}}>
+            {PUBLIC_QR_URL}
+          </a>
+        </p>
+        
+        <div style={{marginTop: '20px', fontSize: '12px', color: '#555', background: '#eef', padding: '10px', borderRadius: '5px'}}>
+            IP Config: <b>{LAPTOP_IP}</b>
         </div>
-
-        {/* Info Section */}
       </div>
-    </section>
+
+    </div>
   );
 };
 
-export default ARScanPage;
+export default ScanARPage;
