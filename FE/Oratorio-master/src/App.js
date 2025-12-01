@@ -11,10 +11,10 @@ import RegisterPage from './pages/register';
 import Dashboard from './pages/dashboard';
 
 // Import Halaman AR (Updated Logic)
-import ArGalleryPage from './pages/ARGalleryPage'; // Halaman List Candi
-import ArPage from './pages/ar';                 // Halaman Panduan (Guidance)
-import ARScanPage from './pages/ScanARPage';     // Halaman Desktop (Kiri Marker, Kanan QR)
-import MobileARView from './pages/MobileARView'; // Halaman Mobile (Kamera AR) - PASTIKAN FILE INI DIBUAT
+import ArGalleryPage from './pages/ARGalleryPage';
+import ArPage from './pages/ArPage';
+import ARScanPage from './pages/ScanARPage';
+import MobileARView from './pages/MobileARView';
 
 // Import Halaman VR & Lainnya
 import VrGalleryPage from './pages/VRGalleryPage';
@@ -46,25 +46,16 @@ function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/footer" element={<Footer />} />
 
-            {/* --- ALUR AR SYSTEM (INTEGRATED) --- */}
-            {/* 1. Galeri: User memilih wisata */}
+            {/* --- ALUR AR SYSTEM --- */}
             <Route path="/ar" element={<ArGalleryPage />} />
-            
-            {/* 2. Panduan: User melihat detail & cara pakai (menggunakan ID dinamis) */}
             <Route path="/ar/:id" element={<ArPage />} />
-            
-            {/* 3. Scan Desktop: Tampil Marker & QR Code (menggunakan ID dinamis) */}
             <Route path="/scan/:id" element={<ARScanPage />} />
-            
-            {/* 4. Mobile AR: Halaman yang dibuka HP via QR Code */}
             <Route path="/mobile-ar/:id" element={<MobileARView />} />
-
 
             {/* --- ALUR VR SYSTEM --- */}
             <Route path="/vr" element={<VrGalleryPage />} />
             <Route path="/vr/:destinationId" element={<VrPage />} />
             <Route path="/scan360" element={<Scan360Page />} />
-
 
             {/* --- RUTE ADMIN DASHBOARD --- */}
             <Route path="/admin" element={<AdminLayout />}>
@@ -72,10 +63,8 @@ function App() {
               <Route path="content" element={<ContentPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="history" element={<HistoryPage />} />
-              {/* Redirect default admin ke dashboard */}
               <Route index element={<Navigate to="dashboard" />} />
             </Route>
-
           </Routes>
         </div>
       </Router>
