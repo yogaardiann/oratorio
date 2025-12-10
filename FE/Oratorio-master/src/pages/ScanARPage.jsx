@@ -16,6 +16,64 @@ const ScanARPage = () => {
   const IMAGE_BASE_URL = `http://localhost:${BACKEND_PORT}`;
   const PUBLIC_QR_URL = `http://${LAPTOP_IP}:${FRONTEND_PORT}/mobile-ar/${id}`;
 
+    // --- HISTORY RECORDING ---
+const postHistory = async (payload) => {
+  try {
+    const response = await fetch(`${LOCAL_API_URL}/api/history`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    console.log('History POST response:', response.status);
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('History error:', errText);
+    }
+  } catch (e) {
+    console.error('history post failed:', e);
+  }
+};
+
+// Record scan_start on mount, scan_end on unmount
+useEffect(() => {
+  const rawUser = localStorage.getItem('user');
+  let user = null;
+  try { user = rawUser ? JSON.parse(rawUser) : null; } catch(e){ user = null; }
+
+  console.log('ScanARPage mounted, user:', user);
+
+  const startedAt = new Date().toISOString();
+  // Send scan_start
+  postHistory({
+    user_id: user?.user_id ?? null,
+    user_email: user?.email ?? user?.username ?? null,
+    destination_id: id ? parseInt(id) : null,
+    action: 'scan_start',
+    model_type: 'AR',
+    started_at: startedAt,
+    metadata: { from: 'scan_page' }
+  });
+
+  // Cleanup: send scan_end with duration
+  const mountTime = Date.now();
+  return () => {
+    const endedAt = new Date().toISOString();
+    const duration_seconds = Math.max(0, Math.round((Date.now() - mountTime) / 1000));
+    console.log('ScanARPage unmounting, duration:', duration_seconds);
+    postHistory({
+      user_id: user?.user_id ?? null,
+      user_email: user?.email ?? user?.username ?? null,
+      destination_id: id ? parseInt(id) : null,
+      action: 'scan_end',
+      model_type: 'AR',
+      started_at: startedAt,
+      ended_at: endedAt,
+      duration_seconds,
+      metadata: { from: 'scan_page', duration: duration_seconds }
+    });
+  };
+}, [id]);
+
   useEffect(() => {
     axios.get(`${LOCAL_API_URL}/api/wisata/${id}`)
       .then(res => {

@@ -1,6 +1,8 @@
 import os
 import logging
-from flask import Flask, request, jsonify, send_from_directory, current_app
+import json
+from datetime import datetime
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -19,17 +21,9 @@ CORS(app)
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-ALLOWED_MODEL_EXT = {'.glb'}
-ALLOWED_IMAGE_EXT = {'.png', '.jpg', '.jpeg', '.gif'}
-ALLOWED_MIND_EXT = {'.mind'}
-
-def allowed_ext(filename, allowed_set):
-    _, ext = os.path.splitext(filename.lower())
-    return ext in allowed_set
 
 def save_file(file):
     filename = secure_filename(file.filename)
-    # avoid collisions: prefix with timestamp if needed (kept simple here)
     path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(path)
     return filename
@@ -60,6 +54,7 @@ def serve_uploads(filename):
 
 # -----------------------
 # AR API (CRUD)
+# (kept existing endpoints for /api/wisata)
 # -----------------------
 
 @app.route('/api/wisata', methods=['GET'])
@@ -100,7 +95,6 @@ def get_wisata_detail(id):
 
 @app.route('/api/wisata', methods=['POST'])
 def add_wisata():
-    # Expect multipart/form-data with files: marker, mind, model and fields: name, description, location
     if 'marker' not in request.files or 'mind' not in request.files or 'model' not in request.files:
         return jsonify({"status": "error", "message": "Files marker/mind/model required"}), 400
 
@@ -112,7 +106,6 @@ def add_wisata():
     mind = request.files['mind']
     model = request.files['model']
 
-    # optional: validate extensions (skip strict failing for flexibility)
     try:
         marker_filename = save_file(marker)
         mind_filename = save_file(mind)
@@ -142,15 +135,12 @@ def add_wisata():
 
 @app.route('/api/wisata/<int:id>', methods=['PUT'])
 def update_wisata(id):
-    # Accept multipart/form-data (files optional) or JSON
     conn = get_connection()
     if not conn:
         return jsonify({"status": "error", "message": "DB connection failed"}), 500
     cursor = conn.cursor()
     try:
-        # Build dynamic update
         if request.content_type and request.content_type.startswith('multipart/form-data'):
-            # form fields
             name = request.form.get('name')
             description = request.form.get('description')
             location = request.form.get('location')
@@ -165,7 +155,6 @@ def update_wisata(id):
             if location is not None:
                 set_parts.append("location=%s"); params.append(location)
 
-            # files
             if 'marker' in request.files:
                 marker_filename = save_file(request.files['marker'])
                 set_parts.append("marker_image=%s"); params.append(marker_filename)
@@ -187,7 +176,6 @@ def update_wisata(id):
                 return jsonify({"status": "error", "message": "Not found"}), 404
             return jsonify({"status": "ok", "message": "Updated"}), 200
         else:
-            # JSON body
             data = request.json or {}
             allowed = ['name', 'description', 'location']
             set_parts = []
@@ -220,7 +208,6 @@ def delete_wisata(id):
         return jsonify({"status": "error", "message": "DB connection failed"}), 500
     cursor = conn.cursor(dictionary=True)
     try:
-        # find files to delete
         cursor.execute("SELECT marker_image, mind_file, glb_model FROM ar_destinations WHERE id = %s", (id,))
         row = cursor.fetchone()
         if not row:
@@ -229,7 +216,6 @@ def delete_wisata(id):
         cursor.execute("DELETE FROM ar_destinations WHERE id = %s", (id,))
         conn.commit()
 
-        # remove files (ignore errors)
         for key in ("marker_image", "mind_file", "glb_model"):
             fname = row.get(key)
             if fname:
@@ -248,7 +234,95 @@ def delete_wisata(id):
         conn.close()
 
 # -----------------------
-# AUTH routes (unchanged, left safe)
+# History API (new)
+# -----------------------
+@app.route('/api/history', methods=['POST'])
+def add_history():
+    data = request.json or {}
+    user_id = data.get('user_id')
+    user_email = data.get('user_email')
+    destination_id = data.get('destination_id')
+    action = data.get('action', 'scan_start')
+    model_type = data.get('model_type', 'AR')
+    started_at = data.get('started_at')  # ISO string optional
+    ended_at = data.get('ended_at')
+    duration_seconds = data.get('duration_seconds')
+    metadata = data.get('metadata')
+
+    # Normalize timestamps
+    try:
+        if started_at:
+            started_str = datetime.fromisoformat(started_at).strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            started_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    except Exception:
+        started_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+
+    try:
+        conn = get_connection()
+        if not conn:
+            return jsonify({"message":"DB connection failed"}), 500
+        cursor = conn.cursor()
+        query = """
+            INSERT INTO history (user_id, user_email, destination_id, action, model_type, started_at, ended_at, duration_seconds, metadata)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(query, (
+            user_id,
+            user_email,
+            destination_id,
+            action,
+            model_type,
+            started_str,
+            ended_at if ended_at else None,
+            duration_seconds,
+            json.dumps(metadata) if metadata else None
+        ))
+        conn.commit()
+        hid = cursor.lastrowid
+        cursor.close()
+        conn.close()
+        return jsonify({"message":"ok","history_id":hid}), 201
+    except Exception as e:
+        logging.error("Error add_history: %s", e)
+        return jsonify({"message": str(e)}), 500
+
+@app.route('/api/history', methods=['GET'])
+def get_all_history():
+    conn = get_connection()
+    if not conn:
+        return jsonify({"message":"DB connection failed"}), 500
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT h.*, d.name as destination_name FROM history h LEFT JOIN ar_destinations d ON h.destination_id = d.id ORDER BY h.started_at DESC LIMIT 1000")
+        rows = cursor.fetchall()
+        return jsonify(rows), 200
+    except Exception as e:
+        logging.error("Error get_all_history: %s", e)
+        return jsonify({"message": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/api/history/user/<int:user_id>', methods=['GET'])
+def get_history_by_user(user_id):
+    conn = get_connection()
+    if not conn:
+        return jsonify({"message":"DB connection failed"}), 500
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT h.*, d.name as destination_name FROM history h LEFT JOIN ar_destinations d ON h.destination_id = d.id WHERE h.user_id = %s ORDER BY h.started_at DESC LIMIT 500", (user_id,))
+        rows = cursor.fetchall()
+        return jsonify(rows), 200
+    except Exception as e:
+        logging.error("Error get_history_by_user: %s", e)
+        return jsonify({"message": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+# -----------------------
+# AUTH routes (unchanged)
 # -----------------------
 @app.route("/api/register", methods=["POST"])
 def register():
