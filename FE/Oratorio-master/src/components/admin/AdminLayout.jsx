@@ -21,9 +21,6 @@ const AdminLayout = () => {
                     <NavLink to="/admin/users">
                         <FiUsers /> Manajemen Pengguna
                     </NavLink>
-                    <NavLink to="/admin/history">
-                        <FiClock /> Riwayat Global
-                    </NavLink>
                 </nav>
             </aside>
             <main className="main-content">

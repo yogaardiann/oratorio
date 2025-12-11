@@ -26,4 +26,6 @@ const AdminHistoryPage = () => {
   );
 };
 
+
+
 export default AdminHistoryPage;

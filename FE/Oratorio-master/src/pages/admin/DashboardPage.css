@@ -1,130 +1,106 @@
 /* ============================================== */
-/* === HEADER HALAMAN & STATISTIK === */
+/* === BASE STYLES & LAYOUT === */
 /* ============================================== */
-.dashboard-header {
-    margin-bottom: 30px;
-}
-
-.dashboard-header h1 {
-    font-size: 2.2rem;
-    font-weight: 700;
+/* Gaya Dasar Header */
+.dashboard-page header h1 {
     color: #1a222e;
-    margin: 0 0 -50px -80px;
 }
 
-.dashboard-header p {
+.dashboard-page header p {
     color: #6c757d;
-    font-size: 1rem;
-    margin-top: 5px;
-    margin-right: 10px
 }
 
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 30px;
+/* Gaya untuk Loading State */
+.loading-state {
+    text-align: center;
+    padding: 40px;
+    font-size: 1.1rem;
+    color: #008080; /* Warna aksen Teal */
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
 }
 
-.stat-card {
+/* ============================================== */
+/* === 🏆 STAT CARD INTERAKTIF (Kelas: stat-card-custom) === */
+/* ============================================== */
+.stat-card-custom {
+    /* Gaya dasar: menggantikan shadow Tailwind */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    /* Transisi untuk efek halus */
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    cursor: pointer;
+    border: 1px solid transparent; 
+}
+
+/* Efek Hover untuk interaktivitas */
+.stat-card-custom:hover {
+    transform: translateY(-8px); /* Sedikit naik */
+    box-shadow: 0 10px 30px rgba(0, 128, 128, 0.12); /* Bayangan yang lebih kuat dengan warna aksen */
+    border-color: #008080; /* Garis aksen saat hover */
+}
+
+/* ============================================== */
+/* === 📊 SECTION UTAMA (Kelas: dashboard-section-custom) === */
+/* ============================================== */
+.dashboard-section-custom {
     background-color: #ffffff;
     padding: 25px;
-    border-radius: 16px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.3s ease;
 }
 
-.stat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 35px rgba(0, 128, 128, 0.15);
-}
-
-.stat-icon {
-    width: 60px;
-    height: 60px;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    font-size: 1.8rem;
-    color: #008080;
-    background-color: #e6f9f1;
-}
-
-.stat-info h4 {
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: #6c757d;
-}
-
-.stat-info p {
-    margin: 5px 0 0;
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #1a222e;
-}
-
-
-/* ============================================== */
-/* === GRID UTAMA UNTUK GRAFIK & AKTIVITAS === */
-/* ============================================== */
-.dashboard-main-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr; /* Grafik 66%, Tabel 33% */
-    gap: 30px;
-    margin-top: 40px;
-}
-
-.dashboard-section {
-    background-color: #ffffff;
-    padding: 30px;
-    border-radius: 16px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-}
-
-.dashboard-section h2 {
-    margin-top: 0;
-    margin-bottom: 25px;
-    font-size: 1.4rem;
-    color: #1a222e;
-}
-
-
-/* ============================================== */
-/* === STYLING ULANG TABEL AKTIVITAS === */
-/* ============================================== */
-.activity-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.activity-table th, .activity-table td {
-    padding: 15px 5px;
-    text-align: left;
-    border-bottom: 1px solid #eef2f7;
-}
-
-.activity-table thead th {
-    font-size: 0.85rem;
+.dashboard-section-custom h2 {
+    font-size: 1.3rem;
     font-weight: 600;
-    color: #6c757d;
-    text-transform: uppercase;
+    color: #1a222e;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #eef2f7;
+    padding-bottom: 10px;
 }
 
-.activity-table tbody td {
-    font-size: 0.95rem;
-    color: #333;
+/* ============================================== */
+/* === 📜 AKTIVITAS TERBARU (Kelas: recent-activity-item) === */
+/* ============================================== */
+.recent-activity-item {
+    padding: 12px 15px;
+    background-color: #f7f9fb; 
+    border-radius: 8px;
+    border-left: 4px solid transparent; 
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
 }
 
-.activity-table tbody tr:last-child td {
-    border-bottom: none;
+.recent-activity-item:hover {
+    background-color: #e6f9f1; /* Latar belakang aksen saat hover */
+    border-left-color: #008080; /* Garis kiri berubah warna */
+    transform: translateX(5px); /* Geser sedikit ke kanan */
 }
 
-/* Penyesuaian untuk Mobile */
-@media (max-width: 992px) {
-    .dashboard-main-grid {
-        grid-template-columns: 1fr; /* Susun vertikal di tablet & HP */
-    }
+.recent-activity-item .font-medium {
+    font-weight: 600;
+    color: #008080; 
+}
+
+/* ============================================== */
+/* === 🎯 TOP DESTINATION CARD (Kelas: top-destination-card) === */
+/* ============================================== */
+.top-destination-card {
+    padding: 15px;
+    background-color: #f7f9fb;
+    border-radius: 8px;
+    border: 1px solid #eef2f7;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+    cursor: pointer;
+}
+
+.top-destination-card:hover {
+    transform: translateY(-3px);
+    background-color: #e9f5f5; 
+    border-color: #008080;
+}
+
+.top-destination-card .font-medium {
+    font-weight: 600;
 }
