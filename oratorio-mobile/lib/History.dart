@@ -5,7 +5,7 @@ import 'dart:async'; // Untuk Duration
 
 // Konstanta Warna (Ambil dari login.dart untuk konsistensi)
 const Color kPrimary = Color(0xFF004D40);
-const String BASE_URL = 'http://192.168.1.26:5000'; // GANTI dengan IP Flask Anda yang benar
+const String BASE_URL = 'http://192.168.110.100:5000'; // GANTI dengan IP Flask Anda yang benar
 
 // Model Data untuk Riwayat Aktivitas
 class HistoryItem {

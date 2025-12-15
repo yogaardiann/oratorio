@@ -27,7 +27,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool isLoading = true;
   String errorMessage = '';
   
-  final String _apiUrl = 'http://192.168.1.26:5000/api/users/profile'; 
+  final String _apiUrl = 'http://192.168.110.100:5000/api/users/profile'; 
 
   @override
   void initState() {

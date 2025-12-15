@@ -59,7 +59,7 @@ class _DashboardPageState extends State<DashboardPage> {
     const ARGalleryPage(),
 
     // Index 2: ScanARPage (Hanya placeholder, navigasi diatur di _onNavBarItemTapped)
-    const ScanARPage(),
+    ScanARPage(),
 
     // Index 3: History (Meneruskan data pengguna)
     HistoryPage(userData: userData),

@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async'; 
-import 'dart:io'; // Tambahkan ini untuk error Socket
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // --- Konstanta Warna (Disesuaikan dan Dirapikan) ---
-const Color kColorPrimary = Color(0xFF004D40); // Hijau Tua / Teal Dark
+const Color kColorPrimary = Color(0xFF004D40);
 const Color kColorPrimaryDark = Color(0xFF00332A);
 const Color kColorFooterBg = Color(0xFF121212);
 const Color kColorFooterText = Color(0xFFA7A7A7);
 
 // ⚠️ IP HOST / SERVER FLASK
-const String kBaseUrl = 'http://192.168.1.26:5000'; 
+const String kBaseUrl = 'http://192.168.110.100:5000'; 
 
 class LoginPage extends StatefulWidget {
     const LoginPage({super.key});
@@ -26,7 +26,7 @@ class _LoginPageState extends State<LoginPage> {
     final _emailCtl = TextEditingController();
     final _passCtl = TextEditingController();
     bool _loading = false;
-    String? _message; // Digunakan untuk menampilkan pesan error di UI (opsional)
+    String? _message;
 
     @override
     void dispose() {
@@ -35,7 +35,6 @@ class _LoginPageState extends State<LoginPage> {
         super.dispose();
     }
 
-    // Fungsi Pembantu untuk menampilkan Snackbar yang rapi
     void _showSnackbar(String message, {Color color = Colors.red}) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -44,7 +43,7 @@ class _LoginPageState extends State<LoginPage> {
       }
     }
 
-    // 🚀 FUNGSI SUBMIT DENGAN DIAGNOSTIK ERROR YANG LEBIH BAIK
+    // 🚀 FUNGSI SUBMIT DENGAN PERBAIKAN TYPE CAST
     Future<void> _submit() async {
         if (!_formKey.currentState!.validate()) return;
         
@@ -67,35 +66,77 @@ class _LoginPageState extends State<LoginPage> {
                 Uri.parse('$kBaseUrl/api/login'), 
                 headers: {'Content-Type': 'application/json'},
                 body: body,
-            ).timeout(const Duration(seconds: 10)); 
+            ).timeout(const Duration(seconds: 10));
 
+            // DEBUG: Lihat respons mentah
+            print('=== DEBUG LOGIN RESPONSE ===');
+            print('Status Code: ${response.statusCode}');
+            print('Response Body: ${response.body}');
+            
             // --- PROSES RESPON ---
-            final Map<String, dynamic> responseData = json.decode(response.body);
+            final Map<String, dynamic> responseData = json.decode(response.body) as Map<String, dynamic>;
+            
+            print('Response Data Keys: ${responseData.keys.toList()}');
+            if (responseData.containsKey('token')) {
+                print('Token: ${responseData['token'] != null ? "ADA" : "NULL"}');
+            }
+            if (responseData.containsKey('user')) {
+                final userData = responseData['user'] as Map<String, dynamic>?;
+                print('User Data: $userData');
+                if (userData != null) {
+                    print('User Keys: ${userData.keys.toList()}');
+                    print('Username from server: ${userData['username']}');
+                    print('Email from server: ${userData['email']}');
+                }
+            }
+            print('=== END DEBUG ===');
 
             if (response.statusCode == 200 && responseData['status'] == 'ok') {
                 // ✅ Login Sukses
                 if (!mounted) return;
                 
-                final user = responseData['user'] as Map<String, dynamic>;
-                final token = responseData['token'] as String;
+                // 2. Akses data dengan aman, gunakan null check
+                final String? token = responseData['token'] as String?;
+                final Map<String, dynamic>? user = responseData['user'] as Map<String, dynamic>?;
                 
+                if (token == null || user == null) {
+                    throw Exception("Respons sukses, namun Token atau Data User kosong (null).");
+                }
+
+                // PERBAIKAN: Gunakan key yang sesuai dengan response Flask
+                final String? username = user['username'] as String?;  // Flask mengirim 'username'
+                final String? email = user['email'] as String?;
+                final dynamic userId = user['user_id'];  // Bisa int atau String
+                
+                // Handle jika username null
+                final String displayName = username ?? user['email']?.split('@')[0] ?? 'Pengguna';
+
                 // Simpan Token JWT ke SharedPreferences
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.setString('jwt_token', token);
                 
-                _showSnackbar('Login berhasil! Selamat datang, ${user['username']}', color: kColorPrimary);
+                // Siapkan data user untuk dikirim ke dashboard
+                final Map<String, dynamic> userData = {
+                    'username': displayName,
+                    'email': email ?? _emailCtl.text.trim(),
+                    'user_id': userId,
+                    'role': user['role'] as String? ?? 'user',
+                };
+
+                _showSnackbar('Login berhasil! Selamat datang, $displayName', color: kColorPrimary);
                 
                 // Navigasi ke Dashboard dan KIRIM DATA USER
-                Navigator.pushReplacementNamed(context, '/dashboard', arguments: user);
+                Navigator.pushReplacementNamed(context, '/dashboard', arguments: userData);
                 
             } else {
-                // ❌ Login Gagal (Status Code 400, 401, 403, dll.)
-                final errorMessage = responseData['message'] ?? 'Otentikasi gagal. Silakan periksa kembali email dan password Anda.';
+                // ❌ Login Gagal
+                // Coba ambil pesan error, jika 'message' null, gunakan fallback.
+                final errorMessage = responseData['message'] as String? ?? 'Otentikasi gagal. Silakan periksa kembali email dan password Anda.';
                 
                 setState(() {
-                    _message = 'Gagal Login: $errorMessage';
+                    _message = 'Gagal Login (Status ${response.statusCode}): $errorMessage';
                 });
-                 _showSnackbar('Gagal Login (Status ${response.statusCode}): $errorMessage', color: Colors.red);
+                _showSnackbar('Gagal Login (Status ${response.statusCode}): $errorMessage', color: Colors.red);
             }
             
         } on TimeoutException {
@@ -103,21 +144,24 @@ class _LoginPageState extends State<LoginPage> {
             setState(() => _message = 'Timeout: Cek koneksi server.');
 
         } on SocketException catch (e) {
-            // ⚠️ Tangkap Error Jaringan Spesifik (No internet, connection refused, dll.)
             String detailMessage;
             if (e.osError?.errorCode == 111) {
                 detailMessage = 'Koneksi Ditolak (Connection Refused). Server Flask tidak berjalan atau Firewall memblokir Port 5000.';
             } else {
                 detailMessage = 'Kesalahan jaringan: Periksa koneksi WiFi dan pastikan BASE_URL ($kBaseUrl) sudah benar.';
             }
-
             _showSnackbar('Error Jaringan: $detailMessage', color: Colors.red.shade700);
             setState(() => _message = detailMessage);
 
+        } on FormatException {
+            // Menangkap error JSON decoding jika respons bukan JSON valid
+            _showSnackbar('Error Format: Respons dari server bukan format JSON yang valid. (Cek log server)', color: Colors.purple);
+            setState(() => _message = 'Error Format: Respons server tidak dapat diurai.');
+
         } catch (e) {
-            // Tangkap error JSON decoding atau error lain yang tidak terduga
-             _showSnackbar('Error tidak terduga saat memproses respon: ${e.runtimeType}', color: Colors.red);
-             setState(() => _message = 'Error: ${e.toString()}');
+            // Menangkap error lain, termasuk Exception kustom di atas dan TypeError yang tidak spesifik
+            _showSnackbar('Error tidak terduga: ${e.runtimeType}. Coba lagi.', color: Colors.red);
+            setState(() => _message = 'Error: ${e.toString()}');
              
         } finally {
             if (mounted) setState(() => _loading = false);
@@ -152,10 +196,10 @@ class _LoginPageState extends State<LoginPage> {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                                 const SizedBox(height: 16),
-                                                Text('Masuk dan Mulai Jelajahi Nusantara!', // Teks diparaphrase
+                                                Text('Masuk dan Mulai Jelajahi Nusantara!',
                                                     style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: kColorPrimaryDark)),
                                                 const SizedBox(height: 8),
-                                                Text('Akses akun Anda menggunakan email dan kata sandi, atau buat akun baru di bawah. Proses yang cepat dan mudah!', // Teks diparaphrase
+                                                Text('Akses akun Anda menggunakan email dan kata sandi, atau buat akun baru di bawah. Proses yang cepat dan mudah!',
                                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[700])),
                                                 const SizedBox(height: 20),
                                                 // Tampilkan Pesan Error di UI jika ada
@@ -178,7 +222,7 @@ class _LoginPageState extends State<LoginPage> {
                                                                 ),
                                                                 validator: (v) {
                                                                     if (v == null || v.trim().isEmpty) return 'Email wajib diisi';
-                                                                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v.trim())) return 'Format email tidak valid'; // Pesan validasi diparaphrase
+                                                                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v.trim())) return 'Format email tidak valid';
                                                                     return null;
                                                                 },
                                                             ),
@@ -191,7 +235,7 @@ class _LoginPageState extends State<LoginPage> {
                                                                     hintText: 'Masukkan kata sandi Anda',
                                                                     border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
                                                                 ),
-                                                                validator: (v) => (v == null || v.isEmpty) ? 'Kata sandi wajib diisi' : null, // Pesan validasi diparaphrase
+                                                                validator: (v) => (v == null || v.isEmpty) ? 'Kata sandi wajib diisi' : null,
                                                             ),
                                                             const SizedBox(height: 16),
                                                             SizedBox(
@@ -211,7 +255,6 @@ class _LoginPageState extends State<LoginPage> {
                                                                 ),
                                                             ),
                                                             const SizedBox(height: 16),
-                                                            // ... Bagian register, lupa sandi, dan media sosial tetap sama ...
                                                             Row(
                                                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                                 children: [
@@ -261,7 +304,7 @@ class _LoginPageState extends State<LoginPage> {
                                                             const SizedBox(height: 12),
                                                             Text.rich(
                                                                 TextSpan(
-                                                                    text: 'Dengan membuat akun, Anda menyetujui ', // Teks diparaphrase
+                                                                    text: 'Dengan membuat akun, Anda menyetujui ',
                                                                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                                                                     children: [
                                                                         TextSpan(text: 'Syarat & Ketentuan', style: const TextStyle(color: kColorPrimary)),

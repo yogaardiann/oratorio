@@ -20,7 +20,7 @@ class ScanArguments {
 String resolveApiBase(String configured) {
   if (Platform.isAndroid) {
     if (configured.contains('localhost') || configured.contains('127.0.0.1')) {
-      return 'http://192.168.1.26:5000';
+      return 'http://192.168.110.100:5000';
     }
   }
   return configured;
@@ -38,7 +38,7 @@ class ARGalleryPage extends StatefulWidget {
 }
 
 class _ARGalleryPageState extends State<ARGalleryPage> {
-  final String apiBase = resolveApiBase('http://192.168.1.26:5000');
+  final String apiBase = resolveApiBase('http://192.168.110.100:5000');
   List<dynamic> items = [];
   bool loading = true;
 
@@ -355,8 +355,6 @@ class _GalleryCard extends StatelessWidget {
   }
 }
 
-class ARViewPage extends StatelessWidget {
-  const ARViewPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -374,7 +372,7 @@ class ARViewPage extends StatelessWidget {
     }
     
     final img = item['marker_image'] ?? '';
-    final resolvedBase = resolveApiBase('http://192.168.1.26:5000');
+    final resolvedBase = resolveApiBase('http://192.168.110.100:5000');
     final imgUrl = img.isNotEmpty ? '$resolvedBase/static/uploads/$img' : null;
 
     return Scaffold(
@@ -405,4 +403,3 @@ class ARViewPage extends StatelessWidget {
       ),
     );
   }
-}

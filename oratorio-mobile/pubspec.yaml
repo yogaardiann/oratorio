@@ -31,10 +31,12 @@ dependencies:
   # Flutter SDK harus didefinisikan dengan sub-key 'sdk: flutter'
   flutter:
     sdk: flutter
-  shared_preferences: ^2.2.2
-  http: ^1.1.0
-  camera: ^0.10.0
+  http: ^1.2.0
+  camera: ^0.10.5+9
   image_picker: ^0.8.7
+  webview_flutter: ^4.7.0
+  shared_preferences: ^2.2.2
+  permission_handler: ^11.3.0
   
   # HTTP harus didefinisikan sejajar dengan 'flutter:', bukan sebagai sub-key-nya.
   # <-- Baris ini sekarang berada di indentasi yang benar

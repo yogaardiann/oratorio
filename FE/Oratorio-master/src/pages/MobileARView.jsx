@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 
 // --- KONFIGURASI IP ---
-const LAPTOP_IP = "192.168.1.26";
+const LAPTOP_IP = "192.168.110.100";
 
 const BACKEND_PORT = "5000";
 
