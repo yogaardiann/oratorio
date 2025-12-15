@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart'; // Tambahkan ini
+import 'package:shared_preferences/shared_preferences.dart'; 
+
+// --- BASE URL ---
+const String kBaseUrl = 'http://192.168.110.100:5000'; 
 
 class ProfilePage extends StatefulWidget {
-  // 1. TAMBAHKAN VARIABEL UNTUK MENERIMA DATA DARI DASHBOARD
-  final Map<String, dynamic>? userData;
-  const ProfilePage({super.key, this.userData}); // Update constructor
+  final Map<String, dynamic>? userData; 
+  const ProfilePage({super.key, this.userData}); 
 
   @override
   _ProfilePageState createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  // Mapping untuk mengaktifkan mode edit (sinkron dengan PUT di Flask)
   Map<String, bool> editMode = {
-    'fullName': false,
-    'email': false,
+    'name': false, 
     'phone': false,
-    'dob': false,
     'hometown': false,
   };
 
@@ -27,22 +28,15 @@ class _ProfilePageState extends State<ProfilePage> {
   bool isLoading = true;
   String errorMessage = '';
   
-  final String _apiUrl = 'http://192.168.110.100:5000/api/users/profile'; 
+  final String _apiUrl = '$kBaseUrl/api/users/profile'; // Endpoint API Flask
 
   @override
   void initState() {
     super.initState();
-    // 2. Cek jika ada userData yang diteruskan sebelum memanggil fetch
-    if (widget.userData != null) {
-        fetchUserProfile();
-    } else {
-        setState(() {
-            isLoading = false;
-            errorMessage = "Error: User data is missing. Please log in again.";
-        });
-    }
+    fetchUserProfile();
   }
 
+  // --- FUNGSI MENGAMBIL DATA PROFILE (GET) ---
   Future<void> fetchUserProfile() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -67,26 +61,31 @@ class _ProfilePageState extends State<ProfilePage> {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = json.decode(response.body) as Map<String, dynamic>; 
         setState(() {
-          currentUser = data;
+          currentUser = data; 
           formData = Map.from(currentUser);
           isLoading = false;
         });
+      } else if (response.statusCode == 401) {
+          setState(() {
+              isLoading = false;
+              errorMessage = 'Sesi habis/Token tidak valid (401). Mohon login ulang.';
+          });
       } else {
-        String msg = 'Failed to load profile. Status: ${response.statusCode}.';
-        print(msg);
+        String msg = 'Gagal memuat profil. Status: ${response.statusCode}.';
+        final body = json.decode(response.body);
+        msg = body['message'] ?? msg;
         setState(() {
           isLoading = false;
           errorMessage = msg;
         });
       }
     } catch (e) {
-      String msg = 'Network/API Error: $e';
-      print(msg);
+      String msg = 'Network/API Error: ${e.toString()}';
       setState(() {
         isLoading = false;
         errorMessage = msg;
@@ -94,32 +93,64 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  // --- FUNGSI UPDATE DATA PROFILE (PUT) ---
   Future<void> updateProfile(String field) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
     
     if (token == null) return;
+    
+    setState(() {
+        isLoading = true; 
+    });
 
     try {
+      // Kirim seluruh formData karena endpoint PUT Flask menangani semua field
+      final payload = {
+        'firstName': formData['firstName'],
+        'lastName': formData['lastName'],
+        'email': formData['email'], // Kirim email meskipun tidak diizinkan edit
+        'phone': formData['phone'],
+        'dob': formData['dob'],
+        'hometown': formData['hometown'],
+      };
+        
       final response = await http.put(
         Uri.parse(_apiUrl), 
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: json.encode(formData),
-      );
+        body: json.encode(payload),
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
+        // Panggil ulang fetchUserProfile untuk memastikan data sinkron
+        await fetchUserProfile(); 
+        
         setState(() {
-          currentUser = Map.from(formData);
           editMode[field] = false;
         });
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil berhasil diperbarui.'), backgroundColor: Colors.green));
+        }
       } else {
-        print('Failed to update profile: Status ${response.statusCode}');
+        final errorBody = json.decode(response.body);
+        final msg = errorBody['message'] ?? 'Gagal update profil. Status: ${response.statusCode}';
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+        }
+        setState(() {
+            isLoading = false;
+        });
       }
     } catch (e) {
-      print('Error updating profile: $e');
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error jaringan saat update: ${e.toString()}'), backgroundColor: Colors.red));
+        }
+        setState(() {
+            isLoading = false;
+        });
     }
   }
 
@@ -147,7 +178,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isMobile = screenWidth < 600;
 
-    if (isLoading) {
+    if (isLoading && currentUser.isEmpty) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
@@ -176,8 +207,8 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       );
     }
-
-    // --- Konten Sidebar (Sapaan & Avatar) ---
+    
+    // --- Konten Sidebar ---
     final Widget sidebarContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -215,42 +246,57 @@ class _ProfilePageState extends State<ProfilePage> {
             style: TextStyle(fontSize: isMobile ? 28 : 36, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
+          
+          // Full Name
           buildInfoItem(
-            'fullName', 
+            'name', 
             'Full name', 
             '${currentUser['firstName'] ?? ''} ${currentUser['lastName'] ?? ''}', 
             [ buildTextField('firstName', 'First name'), buildTextField('lastName', 'Last name') ]
           ),
+          
+          // Email (Tidak diizinkan edit di mode ini)
           buildInfoItem(
             'email', 
             'Email', 
             currentUser['email'] ?? 'Not provided', 
-            [ buildTextField('email', 'Email address', keyboardType: TextInputType.emailAddress) ]
+            [ buildTextField('email', 'Email address', keyboardType: TextInputType.emailAddress) ],
+            isEditable: false
           ),
+          
+          // Phone
           buildInfoItem(
             'phone', 
             'Phone number', 
             currentUser['phone'] ?? 'Not provided', 
             [ buildTextField('phone', 'Phone number', keyboardType: TextInputType.phone) ]
           ),
+          
+          // DOB
           buildInfoItem(
             'dob', 
             'Date of birth', 
             currentUser['dob'] ?? 'Not provided', 
-            [ buildTextField('dob', 'Date of birth') ]
+            [ buildTextField('dob', 'Date of birth') ],
+            isEditable: false // Biarkan tidak bisa di-edit untuk menghindari DatePicker complexity
           ),
+          
+          // Hometown
           buildInfoItem(
             'hometown', 
             'Home town', 
             currentUser['hometown'] ?? 'Not provided', 
             [ buildTextField('hometown', 'Home town') ]
           ),
+          
+          if (isLoading && currentUser.isNotEmpty) 
+              const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())),
         ],
       ),
     );
 
-    // --- Layout Utama (Conditional) ---
-    return Scaffold(
+    // --- Layout Utama ---
+     return Scaffold(
       body: SingleChildScrollView( 
         child: isMobile
             ? Column( // MODE MOBILE
@@ -296,7 +342,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   // Widget untuk menampilkan/mengedit satu item informasi
-  Widget buildInfoItem(String field, String label, String value, List<Widget> editFields) {
+  Widget buildInfoItem(String field, String label, String value, List<Widget> editFields, {bool isEditable = true}) {
+    final bool isInEditMode = editMode.containsKey(field) && editMode[field]!;
+    
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: const BoxDecoration(
@@ -304,6 +352,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: isInEditMode ? CrossAxisAlignment.start : CrossAxisAlignment.center,
         children: [
           // Bagian Display (Label dan Value)
           Column(
@@ -314,48 +363,60 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           
-          // Bagian Edit/Add Button
-          if (!editMode[field]!)
-            TextButton(
-              onPressed: () => handleEdit(field),
-              child: Text(value.isEmpty || value == 'Not provided' ? 'Add' : 'Edit'),
-            )
-          else
-            // Bagian Form Edit (Jika editMode aktif)
-            Expanded( 
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => updateProfile(field),
-                        child: const Text('Save'),
-                      ),
-                      TextButton(
-                        onPressed: () => handleCancel(field),
-                        child: const Text('Cancel'),
-                      ),
-                    ],
-                  ),
-                ],
+          // Bagian Edit/Add Button/Form
+          if (isEditable)
+            if (!isInEditMode)
+              TextButton(
+                onPressed: () => handleEdit(field),
+                child: Text(value.isEmpty || value == 'Not provided' ? 'Add' : 'Edit'),
+              )
+            else
+              // Bagian Form Edit (Jika editMode aktif)
+              Expanded( 
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    ...editFields, 
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () => updateProfile(field),
+                          child: const Text('Save'),
+                        ),
+                        TextButton(
+                          onPressed: () => handleCancel(field),
+                          child: const Text('Cancel'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
         ],
       ),
     );
   }
 
-  // Widget untuk membuat TextField (digunakan di mode edit)
+  // Widget untuk membuat TextField
   Widget buildTextField(String key, String label, {TextInputType keyboardType = TextInputType.text}) {
+    // Controller untuk setiap field dalam mode edit (agar input tidak hilang saat form rebuild)
+    final controller = TextEditingController(text: formData[key] ?? '');
+    
+    // Sinkronkan perubahan kembali ke formData saat input berubah
+    controller.addListener(() {
+        if (formData[key] != controller.text) {
+            handleChange(key, controller.text);
+        }
+    });
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
         decoration: InputDecoration(labelText: label),
         keyboardType: keyboardType,
-        onChanged: (value) => handleChange(key, value),
-        controller: TextEditingController(text: formData[key] ?? ''),
+        controller: controller, // Gunakan controller
+        // onChanged: (value) => handleChange(key, value), // Dihapus karena menggunakan listener
       ),
     );
   }

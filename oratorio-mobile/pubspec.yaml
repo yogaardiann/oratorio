@@ -37,6 +37,8 @@ dependencies:
   webview_flutter: ^4.7.0
   shared_preferences: ^2.2.2
   permission_handler: ^11.3.0
+  url_launcher: ^6.2.2
+  intl: ^0.18.1
   
   # HTTP harus didefinisikan sejajar dengan 'flutter:', bukan sebagai sub-key-nya.
   # <-- Baris ini sekarang berada di indentasi yang benar

@@ -1,54 +1,27 @@
+// HistoryPage.dart (Implementasi History User)
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:async'; // Untuk Duration
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart'; // Untuk format tanggal/waktu
 
-// Konstanta Warna (Ambil dari login.dart untuk konsistensi)
-const Color kPrimary = Color(0xFF004D40);
-const String BASE_URL = 'http://192.168.110.100:5000'; // GANTI dengan IP Flask Anda yang benar
-
-// Model Data untuk Riwayat Aktivitas
-class HistoryItem {
-  final int historyId;
-  final String userEmail;
-  final String action;
-  final String destinationName;
-  final DateTime startedAt;
-
-  HistoryItem({
-    required this.historyId,
-    required this.userEmail,
-    required this.action,
-    required this.destinationName,
-    required this.startedAt,
-  });
-
-  factory HistoryItem.fromJson(Map<String, dynamic> json) {
-    return HistoryItem(
-      historyId: json['history_id'] as int,
-      userEmail: json['user_email'] as String,
-      action: json['action'] as String,
-      destinationName: json['destination_name'] as String? ?? 'Destinasi Tidak Dikenal',
-      // Konversi string tanggal/waktu dari MySQL ke DateTime
-      startedAt: DateTime.parse(json['started_at'] as String), 
-    );
-  }
-}
+// --- BASE URL ---
+const String kBaseUrl = 'http://192.168.110.100:5000'; 
 
 class HistoryPage extends StatefulWidget {
-  // Menerima data pengguna dari DashboardPage
-  final Map<String, dynamic>? userData;
-  
+  // Menerima data user dari Dashboard (Diperlukan untuk mengambil history spesifik)
+  final Map<String, dynamic>? userData; 
   const HistoryPage({super.key, this.userData});
 
   @override
-  _HistoryPageState createState() => _HistoryPageState();
+  State<HistoryPage> createState() => _HistoryPageState();
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  List<HistoryItem> _historyList = [];
-  bool _isLoading = true;
-  String _errorMessage = '';
+  List<dynamic> items = [];
+  bool loading = true;
+  String? errorMessage;
 
   @override
   void initState() {
@@ -56,163 +29,215 @@ class _HistoryPageState extends State<HistoryPage> {
     _fetchHistory();
   }
 
-  // 1. FUNGSI FETCH DATA DARI FLASK API
+  // --- FUNGSI MENGAMBIL HISTORY DARI FLASK ---
   Future<void> _fetchHistory() async {
-    final int? userId = widget.userData?['user_id'] as int?;
-
-    if (userId == null || userId == 0) {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+    final userId = widget.userData?['user_id'];
+    
+    if (token == null || userId == null) {
       setState(() {
-        _isLoading = false;
-        _errorMessage = "User ID tidak tersedia. Harap login ulang.";
+        loading = false;
+        errorMessage = 'Autentikasi diperlukan atau ID pengguna hilang.';
       });
       return;
     }
 
     setState(() {
-      _isLoading = true;
-      _errorMessage = '';
+      loading = true;
+      errorMessage = null;
     });
 
-    final url = Uri.parse('$BASE_URL/api/history/user/$userId');
-    
     try {
-      final response = await http.get(url);
+      // Menggunakan endpoint /api/history/user/<user_id> (di Flask)
+      final url = Uri.parse('$kBaseUrl/api/history/user/$userId'); 
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final List<dynamic> data = json.decode(response.body) as List<dynamic>;
+        // Sort history (Terbaru di atas, seperti di history.jsx)
+        data.sort((a, b) => b['started_at'].compareTo(a['started_at'])); 
         setState(() {
-          _historyList = data.map((item) => HistoryItem.fromJson(item)).toList();
-          _isLoading = false;
+          items = data;
+          loading = false;
+        });
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        setState(() {
+          loading = false;
+          errorMessage = 'Akses ditolak (401/403). Mohon login ulang.';
         });
       } else {
-        final apiMessage = json.decode(response.body)['message'] ?? 'Gagal memuat riwayat.';
+        final body = json.decode(response.body);
         setState(() {
-          _isLoading = false;
-          _errorMessage = "Error ${response.statusCode}: $apiMessage";
+          loading = false;
+          errorMessage = body['message'] ?? 'Gagal memuat riwayat. Status: ${response.statusCode}';
         });
       }
     } catch (e) {
       setState(() {
-        _isLoading = false;
-        _errorMessage = 'Gagal koneksi server: Pastikan API berjalan. $e';
+        loading = false;
+        errorMessage = 'Terjadi kesalahan jaringan: ${e.toString()}';
       });
     }
   }
 
-  // 2. BUILD WIDGET UTAMA
+  // --- FORMATTER ---
+  String _formatDateTime(String? dateTimeStr) {
+    if (dateTimeStr == null) return '-';
+    try {
+      final dateTime = DateTime.parse(dateTimeStr).toLocal();
+      return DateFormat('dd MMM yyyy, HH:mm').format(dateTime);
+    } catch (_) {
+      return dateTimeStr.substring(0, 10);
+    }
+  }
+
+  // --- FORMAT DURATION (Menggunakan logic history.jsx) ---
+  String _formatDuration(dynamic seconds) {
+    if (seconds == null) return '-';
+    int sec = int.tryParse(seconds.toString()) ?? 0;
+    if (sec <= 0) return '-';
+    
+    final m = sec ~/ 60;
+    final s = sec % 60;
+    return m > 0 ? '${m}m ${s}s' : '${s}s';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Aktivitas AR Anda', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: kPrimary,
+        title: const Text('Riwayat Kunjungan'),
+        backgroundColor: const Color(0xFF005954),
         foregroundColor: Colors.white,
       ),
-      body: _buildBody(),
-    );
-  }
-
-  // 3. LOGIKA TAMPILAN (Loading, Error, Data Kosong, Data)
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage.isNotEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
+      body: RefreshIndicator(
+        onRefresh: _fetchHistory,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 40),
-              const SizedBox(height: 10),
-              Text(_errorMessage, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _fetchHistory,
-                child: const Text('Coba Muat Ulang'),
+              const Text(
+                'Jejak petualangan digital Anda.',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
               ),
+              const SizedBox(height: 20),
+
+              if (loading)
+                const Center(child: CircularProgressIndicator())
+              else if (errorMessage != null)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Text('Error: $errorMessage', style: const TextStyle(color: Colors.red)),
+                  ),
+                )
+              else if (items.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Text('Belum ada riwayat kunjungan.', style: TextStyle(color: Colors.grey)),
+                  ),
+                )
+              else
+                // --- Daftar Riwayat (Mengikuti Tampilan history.jsx) ---
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final h = items[index];
+                    final isNewest = index == 0;
+                    
+                    return GestureDetector(
+                      onTap: () {
+                        // Navigasi ke ScanARPage (kontekstual) jika ID tersedia
+                        if (h['destination_id'] != null) {
+                            // Anda perlu mengambil data destinasi lengkap di sini 
+                            // atau cukup navigasi ke detail AR jika memungkinkan.
+                            // Untuk saat ini, kita akan navigasi ke ScanARPage.
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Navigasi ke Destinasi ID: ${h['destination_id']}')));
+                        }
+                      },
+                      child: Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        elevation: isNewest ? 4 : 1,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: isNewest ? const BorderSide(color: Color(0xFF005954), width: 2) : BorderSide.none,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          h['destination_name'] ?? 'Destinasi Tidak Dikenal',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: isNewest ? const Color(0xFF005954) : Colors.black87,
+                                          ),
+                                        ),
+                                        if (isNewest)
+                                          const Padding(
+                                            padding: EdgeInsets.only(left: 8.0),
+                                            child: Chip(
+                                              label: Text('Terbaru', style: TextStyle(fontSize: 10, color: Colors.white)),
+                                              backgroundColor: Color(0xFF005954),
+                                              padding: EdgeInsets.zero,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text('Mode: ${h['model_type'] ?? '-'}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                    Text('Aksi: ${h['action'] ?? '-'}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                    
+                                  ],
+                                ),
+                              ),
+                              
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    _formatDateTime(h['started_at']),
+                                    style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Durasi: ${_formatDuration(h['duration_seconds'])}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.black45),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
         ),
-      );
-    }
-
-    if (_historyList.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.history_toggle_off, color: Colors.grey, size: 60),
-            const SizedBox(height: 10),
-            const Text('Belum ada riwayat aktivitas.', style: TextStyle(fontSize: 18, color: Colors.grey)),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _fetchHistory,
-              child: const Text('Refresh'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // 4. TAMPILAN DATA RIWAYAT (ListView)
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: _historyList.length,
-      itemBuilder: (context, index) {
-        final item = _historyList[index];
-        return _HistoryCard(item: item);
-      },
-    );
-  }
-}
-
-// 5. WIDGET CARD UNTUK SETIAP RIWAYAT
-class _HistoryCard extends StatelessWidget {
-  final HistoryItem item;
-
-  const _HistoryCard({required this.item});
-  
-  // Helper untuk format tanggal
-  String _formatDateTime(DateTime dt) {
-    final date = '${dt.day}/${dt.month}/${dt.year}';
-    final time = '${dt.hour}:${dt.minute}';
-    return '$date, $time WIB';
-  }
-
-  // Helper untuk mendapatkan ikon berdasarkan aksi
-  IconData _getIcon(String action) {
-    if (action.contains('success')) return Icons.check_circle_outline;
-    if (action.contains('scan')) return Icons.qr_code_scanner;
-    return Icons.history;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 15),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: ListTile(
-        leading: Icon(_getIcon(item.action), color: kPrimary, size: 30),
-        title: Text(
-          item.destinationName,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Text('Aksi: ${item.action.toUpperCase()}'),
-        trailing: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_formatDateTime(item.startedAt), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            // Text(item.userEmail, style: const TextStyle(fontSize: 10, color: Colors.black54)),
-          ],
-        ),
-        onTap: () {
-          // Aksi opsional: Tampilkan detail riwayat
-        },
       ),
     );
   }

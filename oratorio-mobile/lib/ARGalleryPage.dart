@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io' show Platform;
-// import 'widget.dart'; // Jika CustomBottomNavBar dan ScanArguments ada di sini
+import 'package:shared_preferences/shared_preferences.dart'; // <<< PENTING
 
 // --- Konstanta Warna ---
 const Color kPrimaryColor = Color(0xFF005954);
 const Color kAccentColor = Color(0xFFC9E4E2);
 
-// --- MODEL ARGUMEN SCAN (Jika belum ada di widget.dart, gunakan ini) ---
+// --- MODEL ARGUMEN SCAN ---
 class ScanArguments {
   final Map<String, dynamic> destinationData;
   final String? jwtToken;
@@ -19,6 +19,7 @@ class ScanArguments {
 // --- FUNGSI RESOLUSI IP ---
 String resolveApiBase(String configured) {
   if (Platform.isAndroid) {
+    // Memastikan IP 192.168.110.100 digunakan di Android
     if (configured.contains('localhost') || configured.contains('127.0.0.1')) {
       return 'http://192.168.110.100:5000';
     }
@@ -38,20 +39,16 @@ class ARGalleryPage extends StatefulWidget {
 }
 
 class _ARGalleryPageState extends State<ARGalleryPage> {
+  // BASE URL disinkronkan dengan IP yang ada di file .jsx Anda
   final String apiBase = resolveApiBase('http://192.168.110.100:5000');
   List<dynamic> items = [];
   bool loading = true;
+  String? errorMessage; 
 
-  // 🎯 FUNGSI SIMULASI PENGAMBILAN JWT TOKEN
-  // GANTIKAN ini dengan Shared Preferences yang sebenarnya!
+  // 🎯 FUNGSI PENGAMBILAN JWT TOKEN SEBENARNYA
   Future<String?> _getJwtToken() async {
-    // Contoh nyata menggunakan SharedPreferences:
-    // final prefs = await SharedPreferences.getInstance();
-    // return prefs.getString('jwt_token');
-    
-    // SIMULASI
-    await Future.delayed(const Duration(milliseconds: 100)); 
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjogMjMsImVtYWlsIjogImd1ZXN0QGV4YW1wbGUuY29tIn0.some_unique_signature_here"; 
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('jwt_token'); 
   }
 
   @override
@@ -61,32 +58,61 @@ class _ARGalleryPageState extends State<ARGalleryPage> {
   }
 
   Future<void> _fetchItems() async {
-    setState(() => loading = true);
+    setState(() {
+      loading = true;
+      errorMessage = null;
+    });
+
+    final String? token = await _getJwtToken();
+
+    if (token == null) {
+        setState(() {
+            loading = false;
+            errorMessage = 'Autentikasi diperlukan. Mohon login kembali.';
+        });
+        return;
+    }
+    
     try {
-      final res = await http.get(Uri.parse('$apiBase/api/wisata')).timeout(const Duration(seconds: 10));
+      final res = await http.get(
+        Uri.parse('$apiBase/api/wisata'), 
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token', // <<< PENTING: Kirim JWT
+        },
+      ).timeout(const Duration(seconds: 10));
+
       if (res.statusCode == 200) {
         final List<dynamic> data = json.decode(res.body) as List<dynamic>;
         setState(() {
           items = data;
           loading = false;
         });
+      } else if (res.statusCode == 401) {
+         setState(() {
+          items = [];
+          loading = false;
+          errorMessage = 'Sesi habis/Token tidak valid (401). Mohon login ulang.';
+        });
       } else {
+        final body = json.decode(res.body);
         setState(() {
           items = [];
           loading = false;
+          errorMessage = body['message'] ?? 'Gagal memuat galeri. Status: ${res.statusCode}';
         });
       }
-    } catch (_) {
+    } catch (e) {
       setState(() {
         items = [];
         loading = false;
+        errorMessage = 'Terjadi kesalahan jaringan: ${e.toString()}';
       });
     }
   }
   
-  // FUNGSI UTAMA UNTUK MENGATASI ERROR ASYNC GAP DAN MENYIAPKAN TOKEN
+  // FUNGSI UTAMA UNTUK POST HISTORY DAN NAVIGASI SCAN AR
   Future<void> _handleStartAR(Map<String, dynamic> item) async {
-    // 1. Ambil JWT Token
     final String? token = await _getJwtToken();
 
     if (token == null) {
@@ -98,50 +124,42 @@ class _ARGalleryPageState extends State<ARGalleryPage> {
       return;
     }
 
-    // 2. Post History (Scan Start) dengan JWT Token
+    // 2. Post History (Scan Start) ke endpoint dengan AUTH
     try {
       await http.post(
-          Uri.parse('$apiBase/api/history'), 
+          Uri.parse('$apiBase/api/history/auth'), // <<< Menggunakan endpoint JWT
           headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token', // Sertakan JWT Token
           }, 
           body: json.encode({
-              'destination_id': item['id'],
+              // ID destinasi yang dikirim saat tombol "Mulai" diklik
+              'destination_id': item['id'], 
               'action': 'scan_start',
-              'started_at': DateTime.now().toUtc().toIso8601String(),
+              'model_type': 'AR',
           }),
-      );
+      ).timeout(const Duration(seconds: 5));
+      debugPrint('History scan_start posted successfully for ID: ${item['id']}');
+      
     } catch (e) {
-      // Jika post history gagal (misalnya karena server mati), tetap lanjut ke ScanARPage
-      debugPrint('Error posting scan_start history: $e');
+      debugPrint('Error posting scan_start history (tetap dilanjutkan): $e');
     }
 
-    // 3. SOLUSI ERROR: Cek 'mounted' sebelum menggunakan Navigator
+    // 3. Navigasi ke ScanARPage (Halaman Guide/Kamera)
     if (!mounted) return; 
 
-    // 4. Navigasi dengan Data Lengkap
     final scanArgs = ScanArguments(
       destinationData: item,
       jwtToken: token,
     );
 
+    // Navigasi ke ScanARPage dengan argumen (kontekstual)
     Navigator.pushNamed(context, '/scan', arguments: scanArgs);
-  }
-
-  // --- Navigasi Item Navbar Dihapus dari sini ---
-  // Logika navigasi navbar harus berada di DashboardPage,
-  // atau Anda harus memastikan Anda mengimpor CustomBottomNavBar dan menangani fungsi ini di sini.
-  void _onNavItemTapped(int index) {
-     // Placeholder untuk menghindari error jika CustomBottomNavBar memerlukan fungsi ini
-     debugPrint('Nav Item Tapped: $index');
   }
 
 
   @override
   Widget build(BuildContext context) {
-    // ❌ HILANGKAN Scaffold dan bottomNavigationBar DI SINI
-    // Konten ini diasumsikan diletakkan di dalam body: Scaffold milik DashboardPage
     final width = MediaQuery.of(context).size.width;
     final cross = width > 900 ? 3 : (width > 600 ? 2 : 1);
 
@@ -149,8 +167,9 @@ class _ARGalleryPageState extends State<ARGalleryPage> {
       onRefresh: _fetchItems,
       child: ListView(
         children: [
-          // Header / Hero Section (Menggunakan AppBar Kustom karena ini adalah konten)
-          // Jika Anda ingin header ini tetap ada meskipun di dalam DashboardPage:
+          // ... (Header AR Gallery) ...
+          
+          // Header / Hero Section
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -172,7 +191,7 @@ class _ARGalleryPageState extends State<ARGalleryPage> {
             ),
           ),
 
-          // Stats bar
+          // Stats bar (Disinkronkan dengan items.length)
           Container(
             color: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
@@ -180,8 +199,8 @@ class _ARGalleryPageState extends State<ARGalleryPage> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _StatItem(count: items.length, label: 'Destinasi'),
-                _StatItem(countText: 'A-Frame', label: 'Framework'),
-                _StatItem(countText: 'MindAR', label: 'Technology'),
+                const _StatItem(countText: 'A-Frame', label: 'Framework'),
+                const _StatItem(countText: 'MindAR', label: 'Technology'),
               ],
             ),
           ),
@@ -194,10 +213,17 @@ class _ARGalleryPageState extends State<ARGalleryPage> {
                     height: 220,
                     child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: const [CircularProgressIndicator(), SizedBox(height: 8), Text('Memuat galeri AR...')])),
                   )
-                : items.isEmpty
+                : errorMessage != null 
                     ? SizedBox(
                         height: 220,
-                        child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: const [Icon(Icons.photo_library, size: 48, color: Colors.grey), SizedBox(height: 8), Text('Galeri Kosong')])),
+                        child: Center(
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.warning, size: 48, color: Colors.red), 
+                            const SizedBox(height: 8), 
+                            Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                            TextButton(onPressed: _fetchItems, child: const Text('Coba Muat Ulang')),
+                          ]),
+                        ),
                       )
                     : GridView.builder(
                         shrinkWrap: true,
@@ -210,9 +236,10 @@ class _ARGalleryPageState extends State<ARGalleryPage> {
                         ),
                         itemCount: items.length,
                         itemBuilder: (context, i) {
-                          final item = items[i];
+                          final item = items[i] as Map<String, dynamic>; 
                           final img = item['marker_image'] ?? '';
-                          final imgUrl = img.isNotEmpty ? '$apiBase/static/uploads/$img' : null;
+                          // URL akses gambar dari Flask: /static/uploads/
+                          final imgUrl = img.isNotEmpty ? '$apiBase/static/uploads/$img' : null; 
                           return _GalleryCard(
                             item: item,
                             imgUrl: imgUrl ?? '',

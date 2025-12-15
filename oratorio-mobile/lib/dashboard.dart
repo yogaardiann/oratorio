@@ -4,6 +4,7 @@ import 'profile.dart'; // Import ProfilePage
 import 'ARGalleryPage.dart'; // Import ARGalleryPage
 import 'ScanARPage.dart'; // Import ScanARPage
 import 'history.dart'; // 🎯 PENTING: Import HistoryPage
+import 'GeneralScanPage.dart';
 
 // --- Konstanta Warna (Ambil dari login.dart untuk konsistensi) ---
 const Color kPrimary = Color(0xFF004D40);
@@ -38,7 +39,9 @@ final List<Map<String, dynamic>> vrDestinations = [
 // --- Dashboard Component Widgets ---
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  // 🎯 PERBAIKAN: Menambahkan parameter argumentsData di constructor
+  final Map<String, dynamic>? argumentsData;
+  const DashboardPage({super.key, this.argumentsData});
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -68,31 +71,32 @@ class _DashboardPageState extends State<DashboardPage> {
     ProfilePage(userData: userData),
   ];
 
-  void _onNavBarItemTapped(int index) {
-    if (index == 2) {
-      // Tombol Kamera Tengah: Navigasi ke /scan dan KIRIM DATA PENGGUNA
-      // ScanARPage akan mengambil userData dari arguments ini.
-      // Saat dipicu dari tombol tengah, tidak ada destinationId yang spesifik.
-      Navigator.pushNamed(context, '/scan', arguments: _currentProfileData);
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
-  }
+// Navigasi Bottom Navbar
+void _onNavBarItemTapped(int index) {
+  // Tombol Index 2 (Kamera) sekarang mengarahkan ke GeneralScanPage (Index 2)
+  setState(() {
+     _selectedIndex = index; 
+  });
+}
 
-  @override
-  Widget build(BuildContext context) {
-    // Mengambil data user yang dikirim dari Login saat pertama kali build
-    final Map<String, dynamic>? argumentsData = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+// ...
+@override
+Widget build(BuildContext context) {
+  // ... (Logika pengambilan arguments)
 
-    // Jika data dari arguments baru ada, simpan ke state
-
-    if (argumentsData != null && _currentProfileData == null) {
-
-        _currentProfileData = argumentsData;
-
-    }
+  // ... (Implementasi CustomBottomNavBar di bawah)
+  final Widget bottomNavBar = BottomNavigationBar(
+    currentIndex: _selectedIndex,
+    onTap: _onNavBarItemTapped, // Memanggil fungsi yang diperbaiki
+    selectedItemColor: kPrimary,
+    unselectedItemColor: Colors.grey,
+    type: BottomNavigationBarType.fixed,
+    items: const <BottomNavigationBarItem>[
+      // ... items lain
+      BottomNavigationBarItem(icon: Icon(Icons.qr_code_scanner), label: 'Scan'), // Index 2
+      // ... items lain
+    ],
+  );
 
     final String username = _currentProfileData?['username'] ?? 'Pengguna';
 
