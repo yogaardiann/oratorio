@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart'; // Untuk format tanggal/waktu
 
 // --- BASE URL ---
-const String kBaseUrl = 'http://192.168.110.100:5000'; 
+const String kBaseUrl = 'http://192.168.1.28:5000'; 
 
 class HistoryPage extends StatefulWidget {
   // Menerima data user dari Dashboard (Diperlukan untuk mengambil history spesifik)

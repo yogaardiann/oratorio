@@ -147,14 +147,14 @@ def delete_user(user_id):
 # =====================================================
 # USER PROFILE (JWT PROTECTED)
 # =====================================================
-@app.route('/api/user/profile', methods=['GET'])
+@app.route('/api/users/profile', methods=['GET'])
 @token_required
 def get_user_profile():
-    user_id = request.user.get("user_id")
+    # Menggunakan request.current_user_id dari decorator token_required
+    user_id = request.current_user_id 
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     try:
-        # NOTE: Sesuaikan kolom SELECT dengan skema tabel 'users' Anda.
         cursor.execute("""
             SELECT user_id, name, email, role, phone, dob, hometown 
             FROM users 
@@ -165,36 +165,37 @@ def get_user_profile():
         if not user:
             return jsonify({"message": "User not found"}), 404
         
-        # Sederhanakan data untuk frontend, pisahkan nama menjadi firstName/username
+        # Mengembalikan data dengan kunci 'name' yang digunakan di Dart
         profile_data = {
             "user_id": user.get("user_id"),
             "email": user.get("email"),
-            "username": user.get("name"), # Menggunakan 'name' dari DB sebagai 'username'
-            "fullName": user.get("name"), 
+            "name": user.get("name"), # Nama Lengkap sesuai kolom DB
             "phone": user.get("phone"),
-            "dob": user.get("dob").isoformat() if user.get("dob") else None,
             "hometown": user.get("hometown"),
         }
         return jsonify(profile_data), 200
     finally:
-        cursor.close()
-        conn.close()
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'conn' in locals() and conn:
+            conn.close()
 
-@app.route('/api/user/profile', methods=['PUT'])
+@app.route('/api/users/profile', methods=['PUT'])
 @token_required
 def update_user_profile():
-    user_id = request.user.get("user_id")
+    # Menggunakan request.current_user_id dari token
+    user_id = request.current_user_id 
     data = request.json
     
-    # Ambil kolom yang boleh diupdate. Sesuaikan dengan field di profile.dart
-    name = data.get("fullName")
+    # Ambil 'name' (Nama Lengkap) sesuai payload dari profile.dart
+    name = data.get("name") 
     phone = data.get("phone")
     hometown = data.get("hometown")
     
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        # NOTE: Sesuaikan SET fields dengan kolom tabel 'users' Anda.
+        # Query UPDATE
         cursor.execute("""
             UPDATE users SET name=%s, phone=%s, hometown=%s 
             WHERE user_id=%s
@@ -205,10 +206,11 @@ def update_user_profile():
         conn.rollback()
         return jsonify({"message": str(e)}), 500
     finally:
-        cursor.close()
-        conn.close()
-
-
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'conn' in locals() and conn:
+            conn.close()
+        
 # =========================================================================
 # === AR API (CRUD) =======================================================
 # =========================================================================

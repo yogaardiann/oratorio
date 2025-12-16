@@ -3,8 +3,9 @@ import 'widget.dart'; // Mengandung CustomBottomNavBar
 import 'profile.dart'; // Import ProfilePage
 import 'ARGalleryPage.dart'; // Import ARGalleryPage
 import 'ScanARPage.dart'; // Import ScanARPage
-import 'history.dart'; // 🎯 PENTING: Import HistoryPage
-import 'GeneralScanPage.dart';
+import 'history.dart'; // Import HistoryPage
+import 'GeneralScanPage.dart'; // Import GeneralScanPage
+import 'package:shared_preferences/shared_preferences.dart'; // Diperlukan untuk Logout (disarankan)
 
 // --- Konstanta Warna (Ambil dari login.dart untuk konsistensi) ---
 const Color kPrimary = Color(0xFF004D40);
@@ -39,7 +40,7 @@ final List<Map<String, dynamic>> vrDestinations = [
 // --- Dashboard Component Widgets ---
 
 class DashboardPage extends StatefulWidget {
-  // 🎯 PERBAIKAN: Menambahkan parameter argumentsData di constructor
+  // Menerima parameter argumentsData dari login
   final Map<String, dynamic>? argumentsData;
   const DashboardPage({super.key, this.argumentsData});
 
@@ -53,7 +54,20 @@ class _DashboardPageState extends State<DashboardPage> {
   // Variabel untuk menyimpan data pengguna yang sedang login
   Map<String, dynamic>? _currentProfileData;
 
-  // 🎯 Daftar Halaman (Dibuat dinamis agar bisa meneruskan data pengguna)
+  @override
+  void initState() {
+    super.initState();
+    // 1. Ambil data user dari arguments saat inisialisasi
+    _currentProfileData = widget.argumentsData;
+    
+    // 2. Jika ada argumen yang menentukan selectedIndex (misalnya redirect setelah AR)
+    if (widget.argumentsData != null && widget.argumentsData!.containsKey('selectedIndex')) {
+        _selectedIndex = widget.argumentsData!['selectedIndex'] as int;
+    }
+  }
+
+
+  // Daftar Halaman (Dibuat dinamis agar bisa meneruskan data pengguna)
   List<Widget> _pageOptions(Map<String, dynamic>? userData) => <Widget>[
     // Index 0: Home
     const _DashboardContent(),
@@ -61,8 +75,8 @@ class _DashboardPageState extends State<DashboardPage> {
     // Index 1: Gallery
     const ARGalleryPage(),
 
-    // Index 2: ScanARPage (Hanya placeholder, navigasi diatur di _onNavBarItemTapped)
-    ScanARPage(),
+    // Index 2: ScanARPage (Placeholder: ini adalah Scan Kontekstual dari Gallery)
+    ScanARPage(), 
 
     // Index 3: History (Meneruskan data pengguna)
     HistoryPage(userData: userData),
@@ -73,31 +87,44 @@ class _DashboardPageState extends State<DashboardPage> {
 
 // Navigasi Bottom Navbar
 void _onNavBarItemTapped(int index) {
-  // Tombol Index 2 (Kamera) sekarang mengarahkan ke GeneralScanPage (Index 2)
+  if (index == 2) {
+    // 🎯 KRITIS: INDEX 2 (KAMERA) - Navigasi ke Halaman General Scan
+
+    if (_currentProfileData == null || _currentProfileData!['user_id'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login diperlukan untuk menggunakan fitur General Scan.')),
+      );
+      setState(() => _selectedIndex = 0);
+      return;
+    }
+    
+    // Navigasi ke GeneralScanPage (General Scan)
+    // Menggunakan Navigator.pushNamed karena ini adalah halaman fullscreen/modal
+    Navigator.pushNamed(context, '/generalscan', arguments: _currentProfileData);
+
+    // Tetap di index yang sama saat kembali (atau index 0/1 jika Index 2 adalah halaman utamanya)
+    return;
+  }
+  
+  // Untuk index 0, 1, 3, 4 (Perubahan tampilan di dalam Dashboard)
   setState(() {
      _selectedIndex = index; 
   });
 }
 
-// ...
+// Implementasi Logout Aman (Opsional)
+Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('jwt_token');
+    if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    }
+}
+
+
 @override
 Widget build(BuildContext context) {
-  // ... (Logika pengambilan arguments)
-
-  // ... (Implementasi CustomBottomNavBar di bawah)
-  final Widget bottomNavBar = BottomNavigationBar(
-    currentIndex: _selectedIndex,
-    onTap: _onNavBarItemTapped, // Memanggil fungsi yang diperbaiki
-    selectedItemColor: kPrimary,
-    unselectedItemColor: Colors.grey,
-    type: BottomNavigationBarType.fixed,
-    items: const <BottomNavigationBarItem>[
-      // ... items lain
-      BottomNavigationBarItem(icon: Icon(Icons.qr_code_scanner), label: 'Scan'), // Index 2
-      // ... items lain
-    ],
-  );
-
+    
     final String username = _currentProfileData?['username'] ?? 'Pengguna';
 
     // Ambil daftar halaman dengan data pengguna
@@ -105,16 +132,14 @@ Widget build(BuildContext context) {
     Widget currentBody = pageOptionsWithData.elementAt(_selectedIndex);
 
     // Jika index 0 (Home)
-
     if (_selectedIndex == 0) {
       return Scaffold(
         body: CustomScrollView(
           slivers: [
             // Header / AppBar
-            _CustomHeader(username: username),
+            _CustomHeader(username: username, onLogout: _logout),
 
             // Konten Home Scrollable
-
             SliverList(
               delegate: SliverChildListDelegate(
                 [
@@ -137,7 +162,7 @@ Widget build(BuildContext context) {
 
     // Untuk Index 1, 3, dan 4 (Gallery, History, Profile)
     return Scaffold(
-      body: currentBody, // Menampilkan ProfilePage, HistoryPage, dll. dengan data user
+      body: currentBody, // Menampilkan ProfilePage, HistoryPage, dll.
       bottomNavigationBar: CustomBottomNavBar(
         selectedIndex: _selectedIndex,
         onItemTapped: _onNavBarItemTapped,
@@ -146,7 +171,7 @@ Widget build(BuildContext context) {
   }
 }
 
-// --- WIDGET BAWAAN (tanpa perubahan, disingkat untuk fokus) ---
+// --- WIDGET BAWAAN (disingkat, hanya _CustomHeader yang diubah) ---
 
 class _DashboardContent extends StatelessWidget {
   const _DashboardContent({super.key});
@@ -159,7 +184,8 @@ class _DashboardContent extends StatelessWidget {
 
 class _CustomHeader extends StatelessWidget {
   final String username;
-  const _CustomHeader({required this.username});
+  final VoidCallback onLogout; // Ditambahkan
+  const _CustomHeader({required this.username, required this.onLogout});
 
   @override
   Widget build(BuildContext context) {
@@ -182,9 +208,7 @@ class _CustomHeader extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.logout),
           tooltip: 'Logout',
-          onPressed: () {
-            Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-          },
+          onPressed: onLogout, // Menggunakan fungsi logout dari state
         ),
       ],
     );
@@ -370,7 +394,6 @@ class _ARTorioSection extends StatelessWidget {
                 ElevatedButton.icon(
                   onPressed: () {
                     // Logika navigasi ke AR Gallery
-                    // Menggunakan pushNamed seperti sebelumnya:
                     Navigator.pushNamed(context, '/argallery');
                   },
                   icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white),

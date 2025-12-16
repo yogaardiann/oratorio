@@ -1,153 +1,430 @@
-// ScanARPage.dart (Implementasi Guide & Contextual Scan Logic)
-
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart'; // Wajib: Pastikan package ini ada di pubspec.yaml
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:url_launcher/url_launcher.dart'; // Untuk membuka link AR
-// 🎯 PERBAIKAN: Import resolveApiBase dari ARGalleryPage
-import 'ARGalleryPage.dart' show ScanArguments, resolveApiBase;
+import 'package:shared_preferences/shared_preferences.dart'; 
+// Tambahkan import model_viewer_plus (Harus ada di pubspec.yaml)
+import 'package:model_viewer_plus/model_viewer_plus.dart'; 
+// Import dari ARGalleryPage (Asumsi file ini ada di folder yang sama)
+import 'ARGalleryPage.dart' show ScanArguments, resolveApiBase; 
 
-// --- BASE URL ---
-const String kBaseUrl = 'http://192.168.110.100:5000'; 
+// --- BASE URL & COLORS ---
+const String kBaseUrl = 'http://192.168.1.28:5000'; 
+const Color kPrimaryColor = Color(0xFF005954);
+const Color kAccentColor = Color(0xFFC9E4E2);
 
-class ScanARPage extends StatelessWidget {
+// -------------------------------------------------------------------
+// 🚀 SCAN AR PAGE (Native Camera Implementation)
+// -------------------------------------------------------------------
+
+class ScanARPage extends StatefulWidget {
   // Terima argumen (ScanArguments) dari ARGalleryPage
-  ScanARPage({super.key});
+  const ScanARPage({super.key});
 
-  // Fungsi untuk memulai AR View di browser (menggunakan MobileARView.jsx)
-  Future<void> _launchARView(BuildContext context, String destinationId) async {
-    final url = Uri.parse('$kBaseUrl/mobile-ar/$destinationId');
+  @override
+  State<ScanARPage> createState() => _ScanARPageState();
+}
+
+class _ScanARPageState extends State<ScanARPage> {
+  // Logic Kamera Native
+  CameraController? _cameraController;
+  List<CameraDescription>? cameras;
+  int _selectedCameraIndex = 0; 
+  bool _isCameraInitialized = false;
+  
+  // Logic Scan AR
+  bool _isScanning = false;
+  bool _isModelFound = false;
+  String _scanStatus = "Menunggu inisialisasi kamera...";
+  Timer? _timer;
+  
+  // Data AR yang Diambil dari API
+  Map<String, dynamic> _destinationData = {};
+  String? _jwtToken;
+  String? _modelUrl; // URL File GLB (dari API)
+  String? _mindUrl;  // URL File MIND (dari API)
+
+  @override
+  void initState() {
+    super.initState();
+    // Memuat argumen dan inisialisasi kamera
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadArguments();
+      _fetchARDetails(); // 🎯 Ambil detail AR (Model/Mind File)
+      _initializeCamera();
+    });
+  }
+
+  void _loadArguments() {
+    // Memastikan argumen dimuat dengan benar dari rute '/scan'
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args != null && args is ScanArguments) {
+      _destinationData = args.destinationData;
+      _jwtToken = args.jwtToken;
+    }
+  }
+  
+  // --- MENGAMBIL DETAIL FILE AR DARI FLASK API ---
+  Future<void> _fetchARDetails() async {
+      final id = _destinationData['id'];
+      if (id == null) return;
+      
+      final apiUrl = '${resolveApiBase(kBaseUrl)}/api/wisata/$id';
+      
+      try {
+          final response = await http.get(Uri.parse(apiUrl));
+          
+          if (response.statusCode == 200) {
+              final data = json.decode(response.body);
+              final resolvedBase = resolveApiBase(kBaseUrl);
+              
+              setState(() {
+                  // Pastikan model_viewer dapat mengakses model 3D
+                  _modelUrl = '$resolvedBase/static/uploads/${data['glb_model']}';
+                  _mindUrl = '$resolvedBase/static/uploads/${data['mind_file']}';
+              });
+              debugPrint('Model URL: $_modelUrl');
+              
+          } else {
+              if(mounted) setState(() => _scanStatus = "Gagal memuat detail AR (Status: ${response.statusCode})");
+          }
+      } catch (e) {
+           if(mounted) setState(() => _scanStatus = "Error jaringan saat memuat detail AR: $e");
+      }
+  }
+
+
+  // --- INISIALISASI KAMERA BELAKANG ---
+  Future<void> _initializeCamera() async {
     try {
-      if (await canLaunchUrl(url)) {
-        // Mode externalApplication lebih reliable untuk membuka browser/aplikasi eksternal
-        await launchUrl(url, mode: LaunchMode.externalApplication); 
-      } else {
-        // Gagal membuka URL
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: Tidak dapat membuka URL $url. Pastikan browser terinstal.')),
-          );
-        }
+      cameras ??= await availableCameras();
+      
+      if (cameras == null || cameras!.isEmpty) {
+        if (mounted) setState(() => _scanStatus = "Error: Tidak ada kamera ditemukan.");
+        return;
       }
+
+      // Mencari index kamera BELAKANG
+      int backIndex = cameras!.indexWhere((c) => c.lensDirection == CameraLensDirection.back);
+      _selectedCameraIndex = backIndex != -1 ? backIndex : 0; 
+      
+      _cameraController = CameraController(
+        cameras![_selectedCameraIndex],
+        ResolutionPreset.medium, 
+        enableAudio: false,
+      );
+
+      await _cameraController!.initialize();
+      
+      if (!mounted) return;
+      setState(() {
+        _isCameraInitialized = true;
+        _scanStatus = "Kamera belakang aktif. Tekan Mulai Scan.";
+      });
+      
     } catch (e) {
-      // Menangkap error runtime (seperti yang ditunjukkan di log)
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal Launch AR View. Detail: ${e.toString()}')),
-        );
-      }
+      if (mounted) setState(() => _scanStatus = "Error inisialisasi kamera: $e");
     }
   }
 
-  // Fungsi untuk simulasi pemindaian AR (Untuk navigasi ke AR View)
-  void _startARCamera(BuildContext context, ScanArguments args) {
-      final destinationId = args.destinationData['id']?.toString();
+  // --- LOGIKA SCAN AR (MEMULAI/MENGHENTIKAN) ---
+  void _toggleScanning() {
+    if (!_isCameraInitialized) {
+      if (mounted) setState(() => _scanStatus = "Kamera belum siap.");
+      return;
+    }
+    
+    _isScanning = !_isScanning;
+    
+    if (_isScanning) {
+      // Mengatur ulang status saat memulai scan baru
+      setState(() {
+          _isModelFound = false;
+      });
 
-      if (destinationId != null) {
-          // Simulasi: Langsung meluncurkan AR View (di browser eksternal)
-          _launchARView(context, destinationId); // Meneruskan context
+      _timer = Timer.periodic(const Duration(milliseconds: 1000), (timer) {
+        _captureAndProcessFrame();
+      });
+      setState(() => _scanStatus = "Scanning marker...");
+    } else {
+      _timer?.cancel();
+      setState(() => _scanStatus = "Scan dihentikan.");
+    }
+  }
+
+  // --- LOGIKA PENGOLAHAN FRAME (SIMULASI DETEKSI MARKER) ---
+  Future<void> _captureAndProcessFrame() async {
+    if (!_isScanning || _cameraController == null || !_cameraController!.value.isInitialized) return;
+
+    try {
+      // Simulasi: Marker Ditemukan 
+      final destinationId = _destinationData['id'] ?? 0;
+      
+      // Simulasi Deteksi Sukses setelah 3 frame (3 detik)
+      if (_timer!.tick % 3 == 0) { 
+          // Marker KONTEKSTUAL ditemukan!
+          _timer?.cancel();
+          _postHistoryAndDisplayAR(destinationId);
+          return;
+
       } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID Destinasi tidak ditemukan.')));
+          // Marker belum ditemukan
+          if (mounted) setState(() => _scanStatus = "Scanning... Arahkan kamera ke marker: ${_destinationData['name']}");
       }
+
+    } catch (e) {
+      print("Error capturing/sending frame: $e");
+    }
+  }
+  
+  // --- POST HISTORY DAN TAMPILKAN AR MODEL ---
+  Future<void> _postHistoryAndDisplayAR(int detectedId) async {
+    if (_jwtToken == null) {
+      if (mounted) setState(() => _scanStatus = 'Autentikasi hilang.');
+      return;
+    }
+    
+    // Hentikan scanning dan set status model ditemukan
+    setState(() {
+        _isScanning = false;
+        _isModelFound = true; // 🎯 Set Model Ditemukan
+    });
+
+    try {
+      final response = await http.post(
+          Uri.parse('${resolveApiBase(kBaseUrl)}/api/history/auth'), 
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_jwtToken'}, 
+          body: json.encode({
+              'destination_id': detectedId, 
+              'action': 'native_scan_success',
+              'model_type': 'Native_Camera', 
+              'duration_seconds': 5,
+              'ended_at': DateTime.now().toUtc().toIso8601String(),
+          }),
+      ).timeout(const Duration(seconds: 5));
+      
+      if (mounted) {
+        if (response.statusCode == 201) {
+            setState(() => _scanStatus = "Marker DITEMUKAN! Riwayat dicatat.");
+        } else {
+            setState(() => _scanStatus = "Marker DITEMUKAN, tapi gagal catat riwayat (Status: ${response.statusCode})");
+        }
+      }
+
+    } catch (e) {
+      if (mounted) setState(() => _scanStatus = 'Error mencatat riwayat: $e');
+    }
+  }
+
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  // --- WIDGET AR MODEL VIEWER (IMPLEMENTASI MODEL_VIEWER_PLUS) ---
+  Widget _buildARModelViewer() {
+    final modelName = _destinationData['name'] ?? 'Model 3D';
+    
+    // PENTING: model_viewer_plus menggunakan WebView untuk menampilkan model 3D.
+    // Pastikan koneksi ke _modelUrl stabil dan file GLB valid.
+    return Stack(
+      children: [
+        // 1. Model 3D Viewer - DIBUNGKUS SIZEDBOX UNTUK KONTROL UKURAN
+        SizedBox.expand( 
+            child: ModelViewer(
+              // URL model GLB dari Flask
+              src: _modelUrl!, 
+              alt: modelName,
+              // Properti 3D Interaktif
+              ar: true, // Mengaktifkan mode AR (membutuhkan ARCore/ARKit)
+              cameraControls: true, // Memungkinkan rotasi/zoom oleh pengguna
+              autoPlay: true, // Auto-animate model
+              autoRotate: true,
+              shadowIntensity: 1,
+              // 🎯 PERBAIKAN: Menghapus properti style yang salah
+              // width: double.infinity, 
+              // height: double.infinity,
+              // Ganti dengan style yang valid (atau hapus)
+              // style: const TextStyle(width: double.infinity, height: double.infinity),
+              
+              // Fallback UI jika model gagal dimuat
+              loading: Loading.eager,
+              iosSrc: _modelUrl, // Gunakan model yang sama untuk iOS
+            ),
+        ),
+        
+        // 2. Overlay Status
+        Positioned(
+          top: 50,
+          left: 20,
+          right: 20,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: kPrimaryColor.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AR VIEW AKTIF: ${modelName}',
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Model File: ${_modelUrl!.substring(_modelUrl!.lastIndexOf('/') + 1)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: kAccentColor, fontSize: 12),
+                ),
+                Text(
+                  'Marker File: ${_mindUrl!.substring(_mindUrl!.lastIndexOf('/') + 1)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: kAccentColor, fontSize: 12),
+                ),
+                Text(
+                  'Arahkan HP Anda untuk melihat AR Model.',
+                  style: const TextStyle(color: kAccentColor, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // 3. Tombol Kembali
+        Positioned(
+          bottom: 40,
+          left: 20,
+          right: 20,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context); // Kembali ke Gallery
+            },
+            icon: const Icon(Icons.close, color: kPrimaryColor),
+            label: const Text('Tutup AR View', style: TextStyle(color: kPrimaryColor)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)?.settings.arguments;
-    
-    // Logika ini harusnya terpicu saat navigasi dari Gallery (via pushNamed)
-    if (args == null || args is! ScanArguments) {
-      // Ini adalah pesan error yang benar untuk ScanARPage yang HANYA menerima ScanArguments.
-      return const Scaffold(body: Center(child: Text('Error: Argumen scan hilang. Mohon kembali ke Gallery.')));
+    if (_destinationData.isEmpty) {
+      return const Scaffold(body: Center(child: Text('Error: Data Destinasi Hilang (Scan Kontekstual).')));
     }
     
-    final ScanArguments scanArgs = args;
-    final item = scanArgs.destinationData;
-    final destinationId = item['id']?.toString() ?? 'N/A';
-    final destinationName = item['name'] ?? 'Destinasi AR';
-    final markerImage = item['marker_image'] ?? '';
-    
-    // 🎯 PERBAIKAN: Menggunakan resolveApiBase yang diimpor
+    final destinationName = _destinationData['name'] ?? 'Destinasi AR';
+    final markerImage = _destinationData['marker_image'] ?? '';
     final imageUrl = markerImage.isNotEmpty ? '${resolveApiBase(kBaseUrl)}/static/uploads/$markerImage' : null;
+    
+    // Cek loading status (termasuk loading detail AR)
+    if (!_isCameraInitialized || _modelUrl == null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+                const CircularProgressIndicator(color: kPrimaryColor),
+                const SizedBox(height: 10),
+                Text(_scanStatus, style: const TextStyle(color: Colors.white70)),
+                if (_modelUrl == null)
+                    const Text('Memuat URL Model AR...', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            ],
+        )),
+      );
+    }
+    
+    // 🎯 LOGIKA SWITCH VIEW UTAMA
+    final Widget cameraView = SizedBox(
+      height: MediaQuery.of(context).size.height,
+      width: MediaQuery.of(context).size.width,
+      child: CameraPreview(_cameraController!),
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Scan Guide: $destinationName'),
-        backgroundColor: const Color(0xFF005954),
+        title: Text(_isModelFound ? 'AR View Selesai' : 'Scan Guide: $destinationName'),
+        backgroundColor: kPrimaryColor,
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ... (Bagian Panduan dan Marker Image tetap sama) ...
-              Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    children: [
-                      const Text('Target Marker:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        height: 250,
-                        color: Colors.grey.shade200,
-                        child: imageUrl != null 
-                          ? Image.network(
-                              imageUrl, 
-                              fit: BoxFit.contain,
-                              errorBuilder: (c, e, s) => const Center(child: Icon(Icons.broken_image, size: 50)),
-                            ) 
-                          : const Center(child: Text('Marker Image Not Available')),
-                      ),
-                      const SizedBox(height: 10),
-                      Text('ID: $destinationId / File: $markerImage', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                    ],
-                  ),
+      body: Stack(
+        children: [
+          // 1. Tampilan Utama: Camera Preview atau AR Model Viewer
+          _isModelFound ? _buildARModelViewer() : cameraView,
+          
+          // 2. Overlay Scanning Status & Guide (Hanya tampil saat TIDAK ModelFound)
+          if (!_isModelFound) ...[
+            Positioned(
+              top: 50,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _isScanning ? Colors.greenAccent : Colors.white),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_scanStatus, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text('Target: ${_destinationData['name']} (ID: ${_destinationData['id']})', style: const TextStyle(color: Colors.white70)),
+                    if (_isScanning) const LinearProgressIndicator(color: Colors.greenAccent),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // --- Button Scan Kamera (Fitur Utama Mobile) ---
-              ElevatedButton.icon(
-                // PERBAIKAN: Memanggil _startARCamera
-                onPressed: () => _startARCamera(context, scanArgs), 
-                icon: const Icon(Icons.camera_alt, color: Colors.white),
-                label: const Text('Mulai Scan Kamera (Kontekstual)', style: TextStyle(fontSize: 18, color: Colors.white)),
+            ),
+            
+            // 3. Overlay Marker Mini-Guide
+            Positioned(
+              bottom: 20,
+              right: 20,
+              child: Tooltip(
+                  message: "Target marker yang harus dipindai",
+                  child: Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: kPrimaryColor, width: 3),
+                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)]
+                      ),
+                      child: imageUrl != null 
+                          ? Image.network(imageUrl, fit: BoxFit.contain, errorBuilder: (c, e, s) => const Center(child: Icon(Icons.broken_image, size: 30)))
+                          : const Center(child: Text("Marker", style: TextStyle(fontSize: 10))),
+                  ),
+              ),
+            ),
+            
+            // 4. Tombol Stop Scanning
+            Positioned(
+              bottom: 20,
+              left: 20,
+              child: ElevatedButton.icon(
+                onPressed: _toggleScanning,
+                icon: Icon(_isScanning ? Icons.stop : Icons.play_arrow, color: Colors.white),
+                label: Text(_isScanning ? "Stop Scan" : "Mulai Scan", style: const TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF005954),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: _isScanning ? Colors.red : kPrimaryColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-              const SizedBox(height: 10),
-
-              // --- Tampilkan History (Mengikuti Referensi .jsx) ---
-              const Divider(height: 40),
-              // PENTING: History tidak ditampilkan langsung di ScanARPage.dart, 
-              // tapi kita akan menggunakan Widget HistoryPage di sini sebagai referensi.
-              // Kita akan membuat widget khusus untuk history user per destination.
-
-              // Placeholder untuk History (Akan diisi di HistoryPage.dart)
-              const Text(
-                'Riwayat Kunjungan ke Destinasi Ini', 
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              // Placeholder untuk Widget History yang akan kita buat
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('Riwayat akan dimuat di sini setelah HistoryPage.dart selesai dibuat.', style: TextStyle(color: Colors.grey)),
-                ),
-              )
-            ],
-          ),
-        ),
+            ),
+          ]
+        ],
       ),
     );
   }

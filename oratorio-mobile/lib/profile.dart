@@ -4,7 +4,10 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart'; 
 
 // --- BASE URL ---
-const String kBaseUrl = 'http://192.168.110.100:5000'; 
+// 🎯 PASTIKAN IP INI SESUAI DENGAN IP FLASK ANDA SAAT INI
+// Mengganti dari 192.168.110.100 (lama) ke 192.168.1.28 (berdasarkan log Anda)
+const String kBaseUrl = 'http://192.168.0.105:5000'; 
+const Color kPrimaryColor = Color(0xFF004D40); // Warna utama
 
 class ProfilePage extends StatefulWidget {
   final Map<String, dynamic>? userData; 
@@ -15,25 +18,36 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Mapping untuk mengaktifkan mode edit (sinkron dengan PUT di Flask)
+  // Mapping untuk mengaktifkan mode edit
+  // Gunakan key yang sama dengan kolom DB/API: 'name', 'phone', 'hometown'
   Map<String, bool> editMode = {
     'name': false, 
     'phone': false,
     'hometown': false,
   };
 
-  Map<String, dynamic> currentUser = {};
-  Map<String, dynamic> formData = {};
+  Map<String, dynamic> currentUser = {}; // Data yang sudah tersimpan di DB
+  Map<String, dynamic> formData = {};    // Data yang sedang diedit (draft)
+  final Map<String, TextEditingController> _controllers = {};
 
   bool isLoading = true;
   String errorMessage = '';
   
-  final String _apiUrl = '$kBaseUrl/api/users/profile'; // Endpoint API Flask
+  final String _apiUrl = '$kBaseUrl/api/users/profile'; 
 
   @override
   void initState() {
     super.initState();
+    for (var key in editMode.keys) {
+      _controllers[key] = TextEditingController();
+    }
     fetchUserProfile();
+  }
+
+  @override
+  void dispose() {
+    _controllers.values.forEach((controller) => controller.dispose());
+    super.dispose();
   }
 
   // --- FUNGSI MENGAMBIL DATA PROFILE (GET) ---
@@ -42,17 +56,11 @@ class _ProfilePageState extends State<ProfilePage> {
     final token = prefs.getString('jwt_token');
     
     if (token == null) {
-      setState(() {
-        isLoading = false;
-        errorMessage = 'Token tidak ditemukan. Silakan login ulang.';
-      });
+      setState(() { isLoading = false; errorMessage = 'Token tidak ditemukan. Silakan login ulang.'; });
       return;
     }
     
-    setState(() {
-      isLoading = true;
-      errorMessage = '';
-    });
+    setState(() { isLoading = true; errorMessage = ''; });
 
     try {
       final response = await http.get(
@@ -63,32 +71,43 @@ class _ProfilePageState extends State<ProfilePage> {
         },
       ).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as Map<String, dynamic>; 
-        setState(() {
-          currentUser = data; 
-          formData = Map.from(currentUser);
-          isLoading = false;
-        });
-      } else if (response.statusCode == 401) {
-          setState(() {
-              isLoading = false;
-              errorMessage = 'Sesi habis/Token tidak valid (401). Mohon login ulang.';
-          });
-      } else {
-        String msg = 'Gagal memuat profil. Status: ${response.statusCode}.';
-        final body = json.decode(response.body);
-        msg = body['message'] ?? msg;
-        setState(() {
-          isLoading = false;
-          errorMessage = msg;
-        });
+      // 🎯 Penanganan error 404/HTML (seperti yang terjadi di log)
+      if (response.statusCode != 200) {
+        String msg = 'Gagal memuat profil (Status: ${response.statusCode}).';
+        
+        if (response.body.startsWith('<!doctype html>')) {
+             msg = 'Error ${response.statusCode}: Endpoint Salah atau Server Crash. Mohon periksa log Flask.';
+        } else {
+            final body = json.decode(response.body);
+            msg = body['message'] ?? msg;
+        }
+        
+        setState(() { isLoading = false; errorMessage = msg; });
+        return;
       }
+
+      // Sukses 200
+      final data = json.decode(response.body) as Map<String, dynamic>; 
+      setState(() {
+        // Hanya menggunakan key yang dikembalikan Flask: name, email, phone, hometown
+        currentUser = {
+          'name': data['name'] ?? 'Pengguna',
+          'email': data['email'] ?? '',
+          'phone': data['phone'] ?? '',
+          'hometown': data['hometown'] ?? '',
+        };
+        formData = Map.from(currentUser);
+        isLoading = false;
+      });
+      // Sinkronkan controllers
+      _controllers.forEach((key, controller) {
+        controller.text = currentUser[key] ?? '';
+      });
+
     } catch (e) {
-      String msg = 'Network/API Error: ${e.toString()}';
       setState(() {
         isLoading = false;
-        errorMessage = msg;
+        errorMessage = 'Network Error: Gagal terhubung ke $kBaseUrl. ${e.toString()}';
       });
     }
   }
@@ -98,20 +117,16 @@ class _ProfilePageState extends State<ProfilePage> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
     
-    if (token == null) return;
+    if (token == null || field == 'email') return; // Email read-only
     
-    setState(() {
-        isLoading = true; 
-    });
+    setState(() { isLoading = true; errorMessage = ''; });
 
     try {
-      // Kirim seluruh formData karena endpoint PUT Flask menangani semua field
+      // 🎯 KRITIS: Kirim semua field yang diizinkan PUT (name, phone, hometown)
+      // Flask akan mengupdate semua field ini, memastikan konsistensi.
       final payload = {
-        'firstName': formData['firstName'],
-        'lastName': formData['lastName'],
-        'email': formData['email'], // Kirim email meskipun tidak diizinkan edit
+        'name': formData['name'], 
         'phone': formData['phone'],
-        'dob': formData['dob'],
         'hometown': formData['hometown'],
       };
         
@@ -128,35 +143,35 @@ class _ProfilePageState extends State<ProfilePage> {
         // Panggil ulang fetchUserProfile untuk memastikan data sinkron
         await fetchUserProfile(); 
         
-        setState(() {
-          editMode[field] = false;
-        });
+        setState(() { editMode[field] = false; });
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil berhasil diperbarui.'), backgroundColor: Colors.green));
         }
       } else {
         final errorBody = json.decode(response.body);
         final msg = errorBody['message'] ?? 'Gagal update profil. Status: ${response.statusCode}';
+        
+        // Rollback form data
+        formData[field] = currentUser[field];
+        handleCancel(field);
+
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
         }
-        setState(() {
-            isLoading = false;
-        });
+        setState(() { isLoading = false; errorMessage = msg; });
       }
     } catch (e) {
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error jaringan saat update: ${e.toString()}'), backgroundColor: Colors.red));
         }
-        setState(() {
-            isLoading = false;
-        });
+        setState(() { isLoading = false; errorMessage = 'Jaringan atau Server Error: ${e.toString()}'; });
     }
   }
 
   void handleEdit(String field) {
+    if (field == 'email') return; // Email read-only
     setState(() {
-      formData = Map.from(currentUser);
+      _controllers[field]?.text = currentUser[field] ?? '';
       editMode[field] = true;
     });
   }
@@ -164,6 +179,9 @@ class _ProfilePageState extends State<ProfilePage> {
   void handleCancel(String field) {
     setState(() {
       editMode[field] = false;
+      // Kembalikan form data ke nilai semula
+      formData[field] = currentUser[field];
+      _controllers[field]?.text = currentUser[field] ?? '';
     });
   }
 
@@ -173,250 +191,198 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
   
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bool isMobile = screenWidth < 600;
-
-    if (isLoading && currentUser.isEmpty) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+  // --- WIDGET HELPER SINKRONISASI ---
+  Widget buildProfileField(String field, String label, {TextInputType keyboardType = TextInputType.text, bool isReadOnly = false}) {
+    final bool isEditing = editMode[field] ?? false;
+    final String currentValue = currentUser[field] ?? '';
+    final TextEditingController controller = _controllers[field] ?? TextEditingController(text: currentValue);
     
-    if (currentUser.isEmpty && errorMessage.isNotEmpty) {
-      return Scaffold(
-        appBar: isMobile ? AppBar(title: const Text("Profile")) : null,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 40),
-                const SizedBox(height: 10),
-                Text('Error: $errorMessage', textAlign: TextAlign.center),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: fetchUserProfile,
-                  child: const Text('Coba Lagi'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+    // Pastikan controller listen ke perubahan hanya saat editing
+    if (!controller.hasListeners && !isReadOnly) {
+        controller.addListener(() => handleChange(field, controller.text));
     }
-    
-    // --- Konten Sidebar ---
-    final Widget sidebarContent = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 29,
-              backgroundColor: const Color(0xFF008080),
-              child: Text(
-                (currentUser['firstName'] ?? 'U').substring(0, 1).toUpperCase(),
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 15),
-            Text(
-              'Hello ${currentUser['username'] ?? 'User'}!',
-              style: TextStyle(
-                fontSize: isMobile ? 20 : 24, 
-                fontWeight: FontWeight.bold
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
 
-    // --- Konten Utama (Daftar Profil) ---
-    final Widget mainContent = Padding(
-      padding: EdgeInsets.all(isMobile ? 20 : 40),
+    // Set nilai controller saat View Mode atau saat nilai currentUser berubah
+    if (!isEditing && controller.text != currentValue) {
+        controller.text = currentValue;
+    }
+
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Personal information',
-            style: TextStyle(fontSize: isMobile ? 28 : 36, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          
-          // Full Name
-          buildInfoItem(
-            'name', 
-            'Full name', 
-            '${currentUser['firstName'] ?? ''} ${currentUser['lastName'] ?? ''}', 
-            [ buildTextField('firstName', 'First name'), buildTextField('lastName', 'Last name') ]
-          ),
-          
-          // Email (Tidak diizinkan edit di mode ini)
-          buildInfoItem(
-            'email', 
-            'Email', 
-            currentUser['email'] ?? 'Not provided', 
-            [ buildTextField('email', 'Email address', keyboardType: TextInputType.emailAddress) ],
-            isEditable: false
-          ),
-          
-          // Phone
-          buildInfoItem(
-            'phone', 
-            'Phone number', 
-            currentUser['phone'] ?? 'Not provided', 
-            [ buildTextField('phone', 'Phone number', keyboardType: TextInputType.phone) ]
-          ),
-          
-          // DOB
-          buildInfoItem(
-            'dob', 
-            'Date of birth', 
-            currentUser['dob'] ?? 'Not provided', 
-            [ buildTextField('dob', 'Date of birth') ],
-            isEditable: false // Biarkan tidak bisa di-edit untuk menghindari DatePicker complexity
-          ),
-          
-          // Hometown
-          buildInfoItem(
-            'hometown', 
-            'Home town', 
-            currentUser['hometown'] ?? 'Not provided', 
-            [ buildTextField('hometown', 'Home town') ]
-          ),
-          
-          if (isLoading && currentUser.isNotEmpty) 
-              const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())),
-        ],
-      ),
-    );
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 4),
 
-    // --- Layout Utama ---
-     return Scaffold(
-      body: SingleChildScrollView( 
-        child: isMobile
-            ? Column( // MODE MOBILE
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 0),
-                    child: sidebarContent,
-                  ),
-                  const Divider(),
-                  mainContent,
-                ],
-              )
-            : Row( // MODE WEB/DESKTOP
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 400,
-                    padding: const EdgeInsets.all(20),
-                    decoration: const BoxDecoration(
-                      border: Border(right: BorderSide(color: Colors.grey)),
+          if (!isEditing || isReadOnly) // Mode Tampilan atau Read-Only
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    currentValue.isNotEmpty ? currentValue : 'Not provided',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: isReadOnly ? FontWeight.w500 : FontWeight.w600,
+                      color: currentValue.isNotEmpty ? Colors.black87 : Colors.grey,
                     ),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                            sidebarContent, 
-                            const SizedBox(height: 40),
-                            const Text(
-                                'Personal information',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                            ),
-                        ]
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (!isReadOnly) 
+                  TextButton(
+                    onPressed: () => handleEdit(field),
+                    child: Text(
+                      currentValue.isNotEmpty ? 'Edit' : 'Add',
+                      style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  Expanded(
-                    child: mainContent,
+              ],
+            )
+          else // Mode Edit
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: controller, 
+                  keyboardType: keyboardType,
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
+                    isDense: true,
+                    border: UnderlineInputBorder(),
                   ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  // Widget untuk menampilkan/mengedit satu item informasi
-  Widget buildInfoItem(String field, String label, String value, List<Widget> editFields, {bool isEditable = true}) {
-    final bool isInEditMode = editMode.containsKey(field) && editMode[field]!;
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: isInEditMode ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-        children: [
-          // Bagian Display (Label dan Value)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(value, style: const TextStyle(color: Colors.grey)),
-            ],
-          ),
-          
-          // Bagian Edit/Add Button/Form
-          if (isEditable)
-            if (!isInEditMode)
-              TextButton(
-                onPressed: () => handleEdit(field),
-                child: Text(value.isEmpty || value == 'Not provided' ? 'Add' : 'Edit'),
-              )
-            else
-              // Bagian Form Edit (Jika editMode aktif)
-              Expanded( 
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    ...editFields, 
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () => updateProfile(field),
-                          child: const Text('Save'),
-                        ),
-                        TextButton(
-                          onPressed: () => handleCancel(field),
-                          child: const Text('Cancel'),
-                        ),
-                      ],
+                    ElevatedButton(
+                      onPressed: () => updateProfile(field),
+                      style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor, foregroundColor: Colors.white),
+                      child: const Text('Save'),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => handleCancel(field),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.red)),
                     ),
                   ],
                 ),
-              ),
+              ],
+            ),
+          const Divider(height: 1, thickness: 1, color: Colors.black12),
         ],
       ),
     );
   }
 
-  // Widget untuk membuat TextField
-  Widget buildTextField(String key, String label, {TextInputType keyboardType = TextInputType.text}) {
-    // Controller untuk setiap field dalam mode edit (agar input tidak hilang saat form rebuild)
-    final controller = TextEditingController(text: formData[key] ?? '');
+  @override
+  Widget build(BuildContext context) {
+    // ... (Logika build Widget tetap sama, tetapi menggunakan buildProfileField yang baru) ...
     
-    // Sinkronkan perubahan kembali ke formData saat input berubah
-    controller.addListener(() {
-        if (formData[key] != controller.text) {
-            handleChange(key, controller.text);
-        }
-    });
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profil Saya'),
+        backgroundColor: kPrimaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: SafeArea(
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator(color: kPrimaryColor))
+            : errorMessage.isNotEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                          const SizedBox(height: 10),
+                          Text('Error: $errorMessage', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red, fontSize: 16)),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: fetchUserProfile,
+                            child: const Text('Coba Lagi'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Header Profile (Nama dan Avatar)
+                        Container(
+                          padding: const EdgeInsets.only(top: 24.0, bottom: 24.0),
+                          decoration: const BoxDecoration(
+                            color: kPrimaryColor,
+                            borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+                          ),
+                          child: Column(
+                            children: [
+                              CircleAvatar(
+                                radius: 40,
+                                backgroundColor: Colors.white,
+                                child: Text(
+                                    (currentUser['name'] ?? 'U').substring(0, 1).toUpperCase(),
+                                    style: const TextStyle(fontSize: 30, color: kPrimaryColor, fontWeight: FontWeight.bold)
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                currentUser['name'] ?? 'Pengguna Oratorio',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                currentUser['email'] ?? 'No Email',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 20),
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: TextField(
-        decoration: InputDecoration(labelText: label),
-        keyboardType: keyboardType,
-        controller: controller, // Gunakan controller
-        // onChanged: (value) => handleChange(key, value), // Dihapus karena menggunakan listener
+                        // Section Detail Profil
+                        const Padding(
+                          padding: EdgeInsets.only(left: 16.0, top: 8, bottom: 8),
+                          child: Text(
+                            'Informasi Akun',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: kPrimaryColor,
+                            ),
+                          ),
+                        ),
+                        
+                        // Field Nama (Edit/Add)
+                        buildProfileField('name', 'Nama Lengkap'),
+
+                        // Field Email (Read-Only)
+                        buildProfileField('email', 'Email (Read-Only)', isReadOnly: true, keyboardType: TextInputType.emailAddress), 
+
+                        // Field Phone (Edit/Add)
+                        buildProfileField('phone', 'Nomor Telepon', keyboardType: TextInputType.phone),
+
+                        // Field Hometown (Edit/Add)
+                        buildProfileField('hometown', 'Asal Kota'),
+
+                        const SizedBox(height: 50),
+                      ],
+                    ),
+                  ),
       ),
     );
   }

@@ -4,8 +4,10 @@ import 'register.dart';
 import 'dashboard.dart';
 import 'ARGalleryPage.dart';
 import 'ScanARPage.dart';
-import 'GeneralScanPage.dart'; // <<< IMPORT BARU
-import 'History.dart'; // Import HistoryPage
+import 'GeneralScanPage.dart';
+import 'History.dart';
+import 'profile.dart'; // Pastikan ProfilePage di-import
+// Tidak perlu import ARViewPage karena kita menggunakan ScanARPage
 
 void main() {
   runApp(const MyApp());
@@ -32,11 +34,17 @@ class MyApp extends StatelessWidget {
         // DashboardPage menerima arguments untuk data user dan redirect index
         '/dashboard': (context) => DashboardPage(argumentsData: ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?), 
         '/argallery': (_) => const ARGalleryPage(),
-        '/scan': (_) => ScanARPage(), // Rute untuk Scan Kontekstual (Guide)
-        '/generalscan': (_) => const GeneralScanPage(), // Rute Baru untuk Scan Umum
-        // 🎯 PERBAIKAN: Menghapus passing arguments ke /history, karena history diakses dari dashboard
+        // Rute untuk Scan Kontekstual (Guide)
+        '/scan': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          // Perlu casting yang aman di sini, namun ScanARPage diimplementasikan tanpa arguments
+          // di constructor. Kita menggunakan ModalRoute.of(context) di dalam ScanARPage.
+          return const ScanARPage(); 
+        }, 
+        // Rute untuk Scan Umum (General)
+        '/generalscan': (context) => const GeneralScanPage(), 
+        // Rute History
         '/history': (_) => const HistoryPage(), 
-        // '/arview': (_) => const ARViewPage(),
       },
     );
   }
