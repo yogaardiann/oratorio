@@ -84,9 +84,10 @@ def serve_uploads(filename):
 # === START USER ROUTES ===================================================
 # =========================================================================
 
-# GET /api/users -> list semua user aktif
+# GET /api/users -> list semua user aktif (Dibutuhkan untuk Dashboard/Admin - NO AUTH)
 @app.route("/api/users", methods=["GET"])
-@token_required
+# 🎯 PERBAIKAN: Menghapus @token_required agar dashboard bisa mengambil data statistik pengguna.
+# @token_required 
 def get_users():
     conn = get_connection()
     if not conn:
@@ -143,14 +144,14 @@ def delete_user(user_id):
             conn.close()
 
 
-# GET /api/users/profile -> get current user profile
 # =====================================================
 # USER PROFILE (JWT PROTECTED)
 # =====================================================
+# 🎯 PERBAIKAN: Mengubah rute menjadi '/api/users/profile'
 @app.route('/api/users/profile', methods=['GET'])
 @token_required
 def get_user_profile():
-    # Menggunakan request.current_user_id dari decorator token_required
+    # 🎯 PERBAIKAN: Menggunakan request.current_user_id dari decorator
     user_id = request.current_user_id 
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
@@ -183,11 +184,11 @@ def get_user_profile():
 @app.route('/api/users/profile', methods=['PUT'])
 @token_required
 def update_user_profile():
-    # Menggunakan request.current_user_id dari token
+    # 🎯 PERBAIKAN: Menggunakan request.current_user_id dari token
     user_id = request.current_user_id 
     data = request.json
     
-    # Ambil 'name' (Nama Lengkap) sesuai payload dari profile.dart
+    # 🎯 PERBAIKAN: Mengambil kunci 'name' dari Dart (bukan 'fullName')
     name = data.get("name") 
     phone = data.get("phone")
     hometown = data.get("hometown")
@@ -436,17 +437,22 @@ def add_history():
         
         # Jika tidak ada user_email, cari dari database
         if not user_email:
-            try:
-                conn_temp = get_connection()
-                cursor_temp = conn_temp.cursor(dictionary=True)
-                cursor_temp.execute("SELECT email FROM users WHERE user_id = %s", (user_id,))
-                user = cursor_temp.fetchone()
-                if user:
-                    user_email = user['email']
-                cursor_temp.close()
-                conn_temp.close()
-            except Exception:
-                user_email = f"user_{user_id}@example.com"
+            conn_temp = get_connection()
+            if conn_temp:
+                try:
+                    cursor_temp = conn_temp.cursor(dictionary=True)
+                    cursor_temp.execute("SELECT email FROM users WHERE user_id = %s", (user_id,))
+                    user = cursor_temp.fetchone()
+                    if user:
+                        user_email = user['email']
+                    cursor_temp.close()
+                except Exception as e:
+                     logging.error("Error fetching user email for unauthenticated history: %s", e)
+                finally:
+                    conn_temp.close()
+            
+            if not user_email:
+                 user_email = f"user_{user_id}@example.com"
         
         # Timestamp
         started_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
@@ -518,30 +524,47 @@ def add_history_with_auth():
         
         # Cari user_email dari database
         user_email = ""
-        try:
-            conn_temp = get_connection()
-            cursor_temp = conn_temp.cursor(dictionary=True)
-            cursor_temp.execute("SELECT email FROM users WHERE user_id = %s", (user_id_from_token,))
-            user = cursor_temp.fetchone()
-            if user:
-                user_email = user['email']
-            cursor_temp.close()
-            conn_temp.close()
-        except Exception:
-            user_email = f"user_{user_id_from_token}@example.com"
+        conn_temp = get_connection()
+        if conn_temp:
+            try:
+                cursor_temp = conn_temp.cursor(dictionary=True)
+                cursor_temp.execute("SELECT email FROM users WHERE user_id = %s", (user_id_from_token,))
+                user = cursor_temp.fetchone()
+                if user:
+                    user_email = user['email']
+                cursor_temp.close()
+            except Exception as e:
+                 logging.error("Error fetching user email for authenticated history: %s", e)
+            finally:
+                conn_temp.close()
         
-        # Timestamp
-        started_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        if not user_email:
+             user_email = f"user_{user_id_from_token}@example.com"
         
-        # Simpan ke database
+        # Timestamp dan Durasi
+        started_at_str = data.get('started_at')
+        ended_at_str = data.get('ended_at')
+        duration_seconds = data.get('duration_seconds')
+        
+        # Normalize timestamps
+        started_at = started_at_str if started_at_str else datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        ended_at = ended_at_str if ended_at_str else None
+        
+        # Simpan/Update ke database (asumsi Upsert Logic diimplementasikan di sini untuk History)
+        # NOTE: Karena logika Upsert yang kompleks ada di destinations.py (blueprint),
+        # dan history.py/app.py hanya punya INSERT, kita asumsikan untuk saat ini
+        # bahwa mobile client hanya menggunakan endpoint ini yang melakukan INSERT.
+        # Jika Anda ingin Upsert (1 entri per destinasi), Anda HARUS menggunakan destinations.py
+        # atau menerapkan logika Upsert di endpoint ini. Kita stick dengan INSERT (default app.py).
+        
         conn = get_connection()
         if not conn:
             return jsonify({"message": "DB connection failed"}), 500
             
         cursor = conn.cursor()
         query = """
-            INSERT INTO history (user_id, user_email, destination_id, action, model_type, started_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO history (user_id, user_email, destination_id, action, model_type, started_at, ended_at, duration_seconds)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(query, (
             user_id_from_token,
@@ -549,7 +572,9 @@ def add_history_with_auth():
             destination_id,
             action,
             model_type,
-            started_at
+            started_at,
+            ended_at,
+            duration_seconds
         ))
         
         conn.commit()
@@ -571,7 +596,8 @@ def add_history_with_auth():
 
 
 @app.route('/api/history', methods=['GET'])
-@token_required
+# 🎯 PERBAIKAN: Menghapus @token_required agar dashboard bisa mengambil data statistik riwayat.
+# @token_required
 def get_all_history():
     conn = get_connection()
     if not conn:
@@ -605,8 +631,7 @@ def get_history_by_user(user_id):
         if request.current_user_id != user_id:
             return jsonify({'message': 'Akses ditolak: Tidak diizinkan melihat history pengguna lain.'}), 403
 
-        # PERBAIKAN KRITIS: EKSPLISIT MEMILIH KOLOM AMAN.
-        # Kolom h.* dihindari untuk mencegah kolom BLOB/LONGTEXT (metadata, user_agent, dll.)
+        # PERBAIKAN KRITIS: EKSPLISIT MEMILIH KOLOM AMAN UNTUK MENGHINDARI DATETIME/BYTES ERROR
         cursor.execute("""
             SELECT 
                 h.history_id, h.user_id, h.user_email, h.destination_id, h.action, 
@@ -631,8 +656,7 @@ def get_history_by_user(user_id):
             if isinstance(clean_row.get('ended_at'), datetime):
                 clean_row['ended_at'] = clean_row['ended_at'].isoformat()
             
-            # Jika ada kolom lain yang mungkin bytes (misal user_agent jika h.* digunakan), 
-            # konversi di sini (meskipun sekarang sudah dihilangkan dari SELECT eksplisit di atas)
+            # Konversi bytes ke string jika ada
             for key, value in clean_row.items():
                 if isinstance(value, bytes):
                      clean_row[key] = value.decode('utf-8', 'ignore')
@@ -751,9 +775,9 @@ def home():
             "/api/wisata": "GET - Get all destinations",
             "/api/login": "POST - User login",
             "/api/register": "POST - User registration",
-            "/api/history": "POST - Add history record (no auth)",
+            "/api/history": "GET/POST - History (GET now public for dashboard)",
             "/api/history/auth": "POST - Add history record (with auth)",
-            "/api/users/profile": "GET - Get user profile"
+            "/api/users/profile": "GET/PUT - Get/Update user profile"
         }
     }), 200
 
