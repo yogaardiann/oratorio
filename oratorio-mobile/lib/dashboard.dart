@@ -3,7 +3,7 @@ import 'widget.dart';
 import 'profile.dart'; 
 import 'ARGalleryPage.dart'; 
 import 'ScanARPage.dart'; 
-import 'history.dart'; 
+import 'History.dart'; 
 import 'GeneralScanPage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -14,8 +14,9 @@ import 'dart:async'; // Untuk Duration
 const Color kPrimary = Color(0xFF004D40);
 const Color kFooterText = Color(0xFFA7A7A7);
 const Color kFooterBg = Color(0xFF121212);
-// BASE URL HARUS SAMA DENGAN login.dart (http://192.168.110.100:5000)
-const String kBaseUrl = 'http://192.168.110.100:5000'; 
+// BASE URL HARUS SAMA DENGAN login.dart (http://172.20.10.2:5000)
+// Harap pastikan IP ini benar dan Flask server berjalan.
+const String kBaseUrl = 'http://172.20.10.2:5000'; 
 
 // --- Assets Paths ---
 const String assetHero = 'assets/images/hero-bg2.jpg';
@@ -38,8 +39,6 @@ final List<Map<String, dynamic>> destinationsData = [
 final List<Map<String, dynamic>> vrDestinations = [
   {'slug': 'candi-borobudur', 'image': assetBorobudur, 'title': 'Candi Borobudur', 'location': 'Magelang, Jawa Tengah'},
   {'slug': 'monumen-nasional', 'image': assetMonas, 'title': 'Monumen Nasional', 'location': 'Jakarta, DKI Jakarta'},
-  {'slug': 'tugu-jogja', 'image': assetTugu, 'title': 'Tugu Jogjakarta', 'location': 'D.I.Yogyakarta'},
-  {'slug': 'jam-gadang', 'image': assetGadang, 'title': 'Jam Gadang', 'location': 'Bukit Tinggi, Sumatera Barat'},
 ];
 
 // --- Dashboard Component Widgets ---
@@ -62,10 +61,14 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    _currentProfileData = widget.argumentsData;
-    
-    if (widget.argumentsData != null && widget.argumentsData!.containsKey('selectedIndex')) {
+    // Inisialisasi data profil dan selectedIndex dari arguments
+    if (widget.argumentsData != null) {
+      if (widget.argumentsData!.containsKey('username')) {
+        _currentProfileData = widget.argumentsData;
+      }
+      if (widget.argumentsData!.containsKey('selectedIndex')) {
         _selectedIndex = widget.argumentsData!['selectedIndex'] as int;
+      }
     }
   }
   
@@ -84,8 +87,8 @@ class _DashboardPageState extends State<DashboardPage> {
     // Index 1: Gallery
     const ARGalleryPage(),
 
-    // Index 2: ScanARPage (Placeholder)
-    const ScanARPage(),
+    // Index 2: General Scan
+    GeneralScanPage(userData: userData), 
 
     // Index 3: History
     HistoryPage(userData: userData),
@@ -96,8 +99,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
 // Navigasi Bottom Navbar (Fix Camera Navigation)
 void _onNavBarItemTapped(int index) {
+  // Index 2 navigasi ke GeneralScanPage (Live AR Render)
   if (index == 2) {
-    // Tombol Index 2 (Kamera) -> Navigasi ke GeneralScanPage
+    // Cek otentikasi sebelum membuka kamera (General Scan)
     if (_currentProfileData == null || _currentProfileData!['user_id'] == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Login diperlukan untuk General Scan.')),
@@ -105,58 +109,95 @@ void _onNavBarItemTapped(int index) {
       return;
     }
     
-    // Navigasi ke GeneralScanPage, membawa data user
-    Navigator.pushNamed(context, '/generalscan', arguments: _currentProfileData);
-    return;
-  }
-  
-  setState(() {
-     _selectedIndex = index; 
-  });
-  
-  // Jika kembali ke Home (Index 0), muat ulang data statistik
-  if (index == 0 && _homeContentKey.currentState != null) {
-      _homeContentKey.currentState!.fetchDashboardData();
+    // Karena GeneralScanPage ada di _pageOptions, kita hanya perlu mengubah index
+    setState(() {
+      _selectedIndex = 2; 
+    });
+  } else {
+    setState(() {
+       _selectedIndex = index; 
+    });
+    
+    // Jika kembali ke Home (Index 0), muat ulang data statistik
+    if (index == 0 && _homeContentKey.currentState != null) {
+        _homeContentKey.currentState!.fetchDashboardData();
+    }
   }
 }
 
 @override
 Widget build(BuildContext context) {
+    // Memperbarui _currentProfileData jika datang dari ModalRoute
+    final Map<String, dynamic>? routeArguments = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+    if (routeArguments != null) {
+        if (routeArguments.containsKey('username') && _currentProfileData == null) {
+             _currentProfileData = routeArguments;
+        }
+        // Jika argumen datang dari GeneralScanPage (redirect), update index
+        if (routeArguments.containsKey('selectedIndex')) {
+             _selectedIndex = routeArguments['selectedIndex'] as int;
+        }
+    }
+    
     final String username = _currentProfileData?['username'] ?? 'Pengguna';
     final List<Widget> pageOptionsWithData = _pageOptions(_currentProfileData);
     Widget currentBody = pageOptionsWithData.elementAt(_selectedIndex);
+    
+    // =========================================================================
+    // IMPLEMENTASI CustomBottomNavBar (Menggunakan widget.dart)
+    // =========================================================================
+    // Asumsi CustomBottomNavBar adalah widget yang berada di file widget.dart
+    // Note: Pastikan file widget.dart diimpor dan berisi CustomBottomNavBar
+    final Widget bottomNavBar = CustomBottomNavBar(
+      selectedIndex: _selectedIndex,
+      onItemTapped: _onNavBarItemTapped,
+    );
+    // =========================================================================
 
-    // Jika index 0 (Home)
+
+    // Jika index 0 (Home) - Menampilkan semua konten scrollable
     if (_selectedIndex == 0) {
-      // Menggunakan Widget _DashboardContent (yang kini stateful) sebagai body
       return Scaffold(
         body: CustomScrollView(
           slivers: [
             _CustomHeader(username: username, onLogout: _logout),
             // Konten Dashboard Content (STATISTICS)
-            _homeContentKey.currentState?.buildSliverList() ?? const SliverToBoxAdapter(child: SizedBox.shrink()),
+            // Menggunakan buildSliverList() dari stateful widget untuk menampilkan konten atau loading/error
+            _homeContentKey.currentState?.buildSliverList() ?? const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))),
           ],
         ),
-        bottomNavigationBar: CustomBottomNavBar(
-          selectedIndex: _selectedIndex,
-          onItemTapped: _onNavBarItemTapped,
-        ),
+        bottomNavigationBar: bottomNavBar,
       );
     }
 
-    // Untuk Index 1, 3, dan 4 (Gallery, History, Profile)
+    // Untuk Index 1, 2, 3, dan 4
     return Scaffold(
+      appBar: _selectedIndex == 2 
+              ? null // No AppBar on Scan Page
+              : AppBar(
+                  title: Text(_getAppBarTitle(_selectedIndex)),
+                  backgroundColor: kPrimary,
+                  foregroundColor: Colors.white,
+                  automaticallyImplyLeading: false,
+                ),
       body: currentBody, 
-      bottomNavigationBar: CustomBottomNavBar(
-        selectedIndex: _selectedIndex,
-        onItemTapped: _onNavBarItemTapped,
-      ),
+      bottomNavigationBar: bottomNavBar,
     );
+  }
+  
+  String _getAppBarTitle(int index) {
+    switch(index) {
+      case 1: return 'AR Gallery';
+      case 3: return 'Riwayat Kunjungan';
+      case 4: return 'Profil Pengguna';
+      default: return 'Oratorio';
+    }
   }
 }
 
 // -----------------------------------------------------------
-// 🎯 WIDGET KONTEN DASHBOARD (SEKARANG STATEFUL UNTUK FETCH)
+// 🎯 WIDGET KONTEN DASHBOARD (STATEFUL UNTUK FETCH DATA)
 // -----------------------------------------------------------
 
 class _DashboardContent extends StatefulWidget {
@@ -178,20 +219,35 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   void initState() {
     super.initState();
-    fetchDashboardData();
+    // Panggil fetchDashboardData setelah memastikan build context siap
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      fetchDashboardData();
+    });
   }
   
   // --- FUNGSI FETCH DATA DASHBOARD ---
   Future<void> fetchDashboardData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+
+    if (token == null) {
+      if (mounted) setState(() {
+          _errorMessage = "Autentikasi hilang. Mohon login ulang.";
+          _loading = false;
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
       _errorMessage = "";
     });
 
     try {
+      // 🎯 Menggunakan Future.wait untuk performa yang lebih baik
       final List<dynamic> results = await Future.wait([
-        _fetchUsers(), 
-        _fetchHistory(),
+        _fetchUsers(token), 
+        _fetchHistory(token),
       ]);
 
       if (!mounted) return;
@@ -212,17 +268,21 @@ class _DashboardContentState extends State<_DashboardContent> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  Future<List<dynamic>> _fetchUsers() async {
-    final res = await http.get(Uri.parse('$kBaseUrl/api/users')).timeout(const Duration(seconds: 5));
+  
+  // Menggunakan token untuk akses API
+  Future<List<dynamic>> _fetchUsers(String token) async {
+    final headers = {'Authorization': 'Bearer $token'};
+    final res = await http.get(Uri.parse('$kBaseUrl/api/users'), headers: headers).timeout(const Duration(seconds: 5));
     if (res.statusCode == 200) {
       return json.decode(res.body) as List<dynamic>;
     }
+    // Jika 401/403, akan ditangkap oleh try-catch utama
     throw Exception('Gagal memuat pengguna (Status: ${res.statusCode})');
   }
 
-  Future<List<dynamic>> _fetchHistory() async {
-    final res = await http.get(Uri.parse('$kBaseUrl/api/history')).timeout(const Duration(seconds: 5));
+  Future<List<dynamic>> _fetchHistory(String token) async {
+    final headers = {'Authorization': 'Bearer $token'};
+    final res = await http.get(Uri.parse('$kBaseUrl/api/history'), headers: headers).timeout(const Duration(seconds: 5));
     if (res.statusCode == 200) {
       return json.decode(res.body) as List<dynamic>;
     }
@@ -278,7 +338,14 @@ class _DashboardContentState extends State<_DashboardContent> {
     if (_errorMessage.isNotEmpty) {
         return SliverList(
           delegate: SliverChildListDelegate([
-            Center(child: Padding(padding: const EdgeInsets.all(32.0), child: Text(_errorMessage, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)))),
+            Center(child: Padding(padding: const EdgeInsets.all(32.0), child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                    Text(_errorMessage, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 10),
+                    ElevatedButton(onPressed: fetchDashboardData, child: const Text("Coba Muat Ulang Statistik")),
+                ],
+            ))),
           ]),
         );
     }
@@ -309,7 +376,8 @@ class _DashboardContentState extends State<_DashboardContent> {
   @override
   Widget build(BuildContext context) {
     // Widget ini hanya berfungsi sebagai container state, konten ditampilkan oleh buildSliverList
-    return Container();
+    // Memanggil buildSliverList di sini untuk memastikan ia memiliki reference ke statenya
+    return buildSliverList();
   }
 }
 

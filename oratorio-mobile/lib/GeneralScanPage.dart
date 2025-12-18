@@ -12,7 +12,7 @@ import 'ARGalleryPage.dart' show resolveApiBase;
 
 // --- BASE URL & COLORS ---
 // Menggunakan IP yang konsisten dengan file Anda
-const String kBaseUrl = 'http://192.168.1.28:5000'; 
+const String kBaseUrl = 'http://172.20.10.2:5000'; 
 const Color kPrimaryColor = Color(0xFF005954);
 const Color kAccentColor = Color(0xFFC9E4E2);
 

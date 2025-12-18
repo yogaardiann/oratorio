@@ -10,7 +10,7 @@ import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'ARGalleryPage.dart' show ScanArguments, resolveApiBase; 
 
 // --- BASE URL & COLORS ---
-const String kBaseUrl = 'http://192.168.1.28:5000'; 
+const String kBaseUrl = 'http://172.20.10.2:5000'; 
 const Color kPrimaryColor = Color(0xFF005954);
 const Color kAccentColor = Color(0xFFC9E4E2);
 

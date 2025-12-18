@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
 import axios from 'axios';
 
-const LAPTOP_IP = "192.168.1.28";
+const LAPTOP_IP = "172.20.10.2";
 const BACKEND_PORT = "5000";
 const FRONTEND_PORT = "3000";
 
