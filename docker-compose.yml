@@ -1,0 +1,33 @@
+services:
+  # --- Database MySQL ---
+  db:
+    image: mysql:8.0
+    container_name: oratorio_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: oratorio
+      MYSQL_ROOT_PASSWORD: rootpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init_db:/docker-entrypoint-initdb.d
+
+  # --- Flask Backend ---
+  backend:
+    build: ./backend
+    container_name: oratorio_backend
+    environment:
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=oratorio
+    ports:
+      - "5000:5000" # Wajib agar React di luar Docker bisa "nembak" ke sini
+    depends_on:
+      - db
+    volumes:
+      - ./backend/static/uploads:/app/static/uploads
+
+volumes:
+  mysql_data:

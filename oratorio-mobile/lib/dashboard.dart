@@ -1,22 +1,16 @@
 import 'package:flutter/material.dart';
-import 'widget.dart'; 
-import 'profile.dart'; 
-import 'ARGalleryPage.dart'; 
-import 'ScanARPage.dart'; 
-import 'History.dart'; 
-import 'GeneralScanPage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:async'; // Untuk Duration
+import 'widget.dart'; // Mengandung CustomBottomNavBar
+import 'profile.dart'; // Import ProfilePage
+import 'ARGalleryPage.dart'; // Import ARGalleryPage
+import 'ScanARPage.dart'; // Import ScanARPage
+import 'history.dart'; // Import HistoryPage
+import 'GeneralScanPage.dart'; // Import GeneralScanPage
+import 'package:shared_preferences/shared_preferences.dart'; // Diperlukan untuk Logout (disarankan)
 
-// --- Konstanta Warna dan BASE URL ---
+// --- Konstanta Warna (Ambil dari login.dart untuk konsistensi) ---
 const Color kPrimary = Color(0xFF004D40);
 const Color kFooterText = Color(0xFFA7A7A7);
 const Color kFooterBg = Color(0xFF121212);
-// BASE URL HARUS SAMA DENGAN login.dart (http://172.20.10.2:5000)
-// Harap pastikan IP ini benar dan Flask server berjalan.
-const String kBaseUrl = 'http://172.20.10.2:5000'; 
 
 // --- Assets Paths ---
 const String assetHero = 'assets/images/hero-bg2.jpg';
@@ -39,11 +33,14 @@ final List<Map<String, dynamic>> destinationsData = [
 final List<Map<String, dynamic>> vrDestinations = [
   {'slug': 'candi-borobudur', 'image': assetBorobudur, 'title': 'Candi Borobudur', 'location': 'Magelang, Jawa Tengah'},
   {'slug': 'monumen-nasional', 'image': assetMonas, 'title': 'Monumen Nasional', 'location': 'Jakarta, DKI Jakarta'},
+  {'slug': 'tugu-jogja', 'image': assetTugu, 'title': 'Tugu Jogjakarta', 'location': 'D.I.Yogyakarta'},
+  {'slug': 'jam-gadang', 'image': assetGadang, 'title': 'Jam Gadang', 'location': 'Bukit Tinggi, Sumatera Barat'},
 ];
 
 // --- Dashboard Component Widgets ---
 
 class DashboardPage extends StatefulWidget {
+  // Menerima parameter argumentsData dari login
   final Map<String, dynamic>? argumentsData;
   const DashboardPage({super.key, this.argumentsData});
 
@@ -53,412 +50,137 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
+
+  // Variabel untuk menyimpan data pengguna yang sedang login
   Map<String, dynamic>? _currentProfileData;
-  
-  // Instance untuk _DashboardContentState
-  final GlobalKey<_DashboardContentState> _homeContentKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    // Inisialisasi data profil dan selectedIndex dari arguments
-    if (widget.argumentsData != null) {
-      if (widget.argumentsData!.containsKey('username')) {
-        _currentProfileData = widget.argumentsData;
-      }
-      if (widget.argumentsData!.containsKey('selectedIndex')) {
+    // 1. Ambil data user dari arguments saat inisialisasi
+    _currentProfileData = widget.argumentsData;
+    
+    // 2. Jika ada argumen yang menentukan selectedIndex (misalnya redirect setelah AR)
+    if (widget.argumentsData != null && widget.argumentsData!.containsKey('selectedIndex')) {
         _selectedIndex = widget.argumentsData!['selectedIndex'] as int;
-      }
     }
   }
+
+
+  // Daftar Halaman (Dibuat dinamis agar bisa meneruskan data pengguna)
+  List<Widget> _pageOptions(Map<String, dynamic>? userData) => <Widget>[
+    // Index 0: Home
+    const _DashboardContent(),
+
+    // Index 1: Gallery
+    const ARGalleryPage(),
+
+    // Index 2: ScanARPage (Placeholder: ini adalah Scan Kontekstual dari Gallery)
+    ScanARPage(), 
+
+    // Index 3: History (Meneruskan data pengguna)
+    HistoryPage(userData: userData),
+
+    // Index 4: Profile (Meneruskan data pengguna)
+    ProfilePage(userData: userData),
+  ];
+
+// Navigasi Bottom Navbar
+void _onNavBarItemTapped(int index) {
+  if (index == 2) {
+    // 🎯 KRITIS: INDEX 2 (KAMERA) - Navigasi ke Halaman General Scan
+
+    if (_currentProfileData == null || _currentProfileData!['user_id'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login diperlukan untuk menggunakan fitur General Scan.')),
+      );
+      setState(() => _selectedIndex = 0);
+      return;
+    }
+    
+    // Navigasi ke GeneralScanPage (General Scan)
+    // Menggunakan Navigator.pushNamed karena ini adalah halaman fullscreen/modal
+    Navigator.pushNamed(context, '/generalscan', arguments: _currentProfileData);
+
+    // Tetap di index yang sama saat kembali (atau index 0/1 jika Index 2 adalah halaman utamanya)
+    return;
+  }
   
-  Future<void> _logout() async {
+  // Untuk index 0, 1, 3, 4 (Perubahan tampilan di dalam Dashboard)
+  setState(() {
+     _selectedIndex = index; 
+  });
+}
+
+// Implementasi Logout Aman (Opsional)
+Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('jwt_token');
     if (mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
-  }
-
-  List<Widget> _pageOptions(Map<String, dynamic>? userData) => <Widget>[
-    // Index 0: Home (Dashboard Content Stateful)
-    _DashboardContent(key: _homeContentKey),
-
-    // Index 1: Gallery
-    const ARGalleryPage(),
-
-    // Index 2: General Scan
-    GeneralScanPage(userData: userData), 
-
-    // Index 3: History
-    HistoryPage(userData: userData),
-
-    // Index 4: Profile
-    ProfilePage(userData: userData),
-  ];
-
-// Navigasi Bottom Navbar (Fix Camera Navigation)
-void _onNavBarItemTapped(int index) {
-  // Index 2 navigasi ke GeneralScanPage (Live AR Render)
-  if (index == 2) {
-    // Cek otentikasi sebelum membuka kamera (General Scan)
-    if (_currentProfileData == null || _currentProfileData!['user_id'] == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login diperlukan untuk General Scan.')),
-      );
-      return;
-    }
-    
-    // Karena GeneralScanPage ada di _pageOptions, kita hanya perlu mengubah index
-    setState(() {
-      _selectedIndex = 2; 
-    });
-  } else {
-    setState(() {
-       _selectedIndex = index; 
-    });
-    
-    // Jika kembali ke Home (Index 0), muat ulang data statistik
-    if (index == 0 && _homeContentKey.currentState != null) {
-        _homeContentKey.currentState!.fetchDashboardData();
-    }
-  }
 }
+
 
 @override
 Widget build(BuildContext context) {
-    // Memperbarui _currentProfileData jika datang dari ModalRoute
-    final Map<String, dynamic>? routeArguments = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-
-    if (routeArguments != null) {
-        if (routeArguments.containsKey('username') && _currentProfileData == null) {
-             _currentProfileData = routeArguments;
-        }
-        // Jika argumen datang dari GeneralScanPage (redirect), update index
-        if (routeArguments.containsKey('selectedIndex')) {
-             _selectedIndex = routeArguments['selectedIndex'] as int;
-        }
-    }
     
     final String username = _currentProfileData?['username'] ?? 'Pengguna';
+
+    // Ambil daftar halaman dengan data pengguna
     final List<Widget> pageOptionsWithData = _pageOptions(_currentProfileData);
     Widget currentBody = pageOptionsWithData.elementAt(_selectedIndex);
-    
-    // =========================================================================
-    // IMPLEMENTASI CustomBottomNavBar (Menggunakan widget.dart)
-    // =========================================================================
-    // Asumsi CustomBottomNavBar adalah widget yang berada di file widget.dart
-    // Note: Pastikan file widget.dart diimpor dan berisi CustomBottomNavBar
-    final Widget bottomNavBar = CustomBottomNavBar(
-      selectedIndex: _selectedIndex,
-      onItemTapped: _onNavBarItemTapped,
-    );
-    // =========================================================================
 
-
-    // Jika index 0 (Home) - Menampilkan semua konten scrollable
+    // Jika index 0 (Home)
     if (_selectedIndex == 0) {
       return Scaffold(
         body: CustomScrollView(
           slivers: [
+            // Header / AppBar
             _CustomHeader(username: username, onLogout: _logout),
-            // Konten Dashboard Content (STATISTICS)
-            // Menggunakan buildSliverList() dari stateful widget untuk menampilkan konten atau loading/error
-            _homeContentKey.currentState?.buildSliverList() ?? const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))),
+
+            // Konten Home Scrollable
+            SliverList(
+              delegate: SliverChildListDelegate(
+                [
+                  _HeroSection(username: username), // Kirim username
+                  const _FavoriteDestinationsSection(),
+                  const _ARTorioSection(),
+                  const _VRTorioSection(),
+                  const _FooterSection(),
+                ],
+              ),
+            ),
           ],
         ),
-        bottomNavigationBar: bottomNavBar,
+        bottomNavigationBar: CustomBottomNavBar(
+          selectedIndex: _selectedIndex,
+          onItemTapped: _onNavBarItemTapped,
+        ),
       );
     }
 
-    // Untuk Index 1, 2, 3, dan 4
+    // Untuk Index 1, 3, dan 4 (Gallery, History, Profile)
     return Scaffold(
-      appBar: _selectedIndex == 2 
-              ? null // No AppBar on Scan Page
-              : AppBar(
-                  title: Text(_getAppBarTitle(_selectedIndex)),
-                  backgroundColor: kPrimary,
-                  foregroundColor: Colors.white,
-                  automaticallyImplyLeading: false,
-                ),
-      body: currentBody, 
-      bottomNavigationBar: bottomNavBar,
+      body: currentBody, // Menampilkan ProfilePage, HistoryPage, dll.
+      bottomNavigationBar: CustomBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onItemTapped: _onNavBarItemTapped,
+      ),
     );
-  }
-  
-  String _getAppBarTitle(int index) {
-    switch(index) {
-      case 1: return 'AR Gallery';
-      case 3: return 'Riwayat Kunjungan';
-      case 4: return 'Profil Pengguna';
-      default: return 'Oratorio';
-    }
   }
 }
 
-// -----------------------------------------------------------
-// 🎯 WIDGET KONTEN DASHBOARD (STATEFUL UNTUK FETCH DATA)
-// -----------------------------------------------------------
+// --- WIDGET BAWAAN (disingkat, hanya _CustomHeader yang diubah) ---
 
-class _DashboardContent extends StatefulWidget {
+class _DashboardContent extends StatelessWidget {
   const _DashboardContent({super.key});
 
   @override
-  State<_DashboardContent> createState() => _DashboardContentState();
-}
-
-class _DashboardContentState extends State<_DashboardContent> {
-  bool _loading = true;
-  String _errorMessage = "";
-  int _totalUsers = 0;
-  String _popularDestination = "Memuat...";
-  int _popularDestinationCount = 0;
-  String _favoriteModel = "Memuat...";
-  int _favoriteModelCount = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    // Panggil fetchDashboardData setelah memastikan build context siap
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      fetchDashboardData();
-    });
-  }
-  
-  // --- FUNGSI FETCH DATA DASHBOARD ---
-  Future<void> fetchDashboardData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwt_token');
-
-    if (token == null) {
-      if (mounted) setState(() {
-          _errorMessage = "Autentikasi hilang. Mohon login ulang.";
-          _loading = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _errorMessage = "";
-    });
-
-    try {
-      // 🎯 Menggunakan Future.wait untuk performa yang lebih baik
-      final List<dynamic> results = await Future.wait([
-        _fetchUsers(token), 
-        _fetchHistory(token),
-      ]);
-
-      if (!mounted) return;
-
-      final List<dynamic> users = results[0];
-      final List<dynamic> history = results[1];
-
-      _totalUsers = users.length;
-      _analyzeHistory(history);
-
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = "Gagal memuat statistik. Pastikan server Flask berjalan. Error: ${e.toString()}";
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-  
-  // Menggunakan token untuk akses API
-  Future<List<dynamic>> _fetchUsers(String token) async {
-    final headers = {'Authorization': 'Bearer $token'};
-    final res = await http.get(Uri.parse('$kBaseUrl/api/users'), headers: headers).timeout(const Duration(seconds: 5));
-    if (res.statusCode == 200) {
-      return json.decode(res.body) as List<dynamic>;
-    }
-    // Jika 401/403, akan ditangkap oleh try-catch utama
-    throw Exception('Gagal memuat pengguna (Status: ${res.statusCode})');
-  }
-
-  Future<List<dynamic>> _fetchHistory(String token) async {
-    final headers = {'Authorization': 'Bearer $token'};
-    final res = await http.get(Uri.parse('$kBaseUrl/api/history'), headers: headers).timeout(const Duration(seconds: 5));
-    if (res.statusCode == 200) {
-      return json.decode(res.body) as List<dynamic>;
-    }
-    throw Exception('Gagal memuat riwayat (Status: ${res.statusCode})');
-  }
-
-  void _analyzeHistory(List<dynamic> historyItems) {
-    if (historyItems.isEmpty) {
-      setState(() {
-        _popularDestination = "Belum ada data";
-        _favoriteModel = "Belum ada data";
-      });
-      return;
-    }
-
-    // 1. Popular Destinations
-    final Map<String, int> destCount = {};
-    for (final h in historyItems) {
-      final name = h['destination_name'] ?? 'Destinasi Tidak Dikenal';
-      destCount[name] = (destCount[name] ?? 0) + 1;
-    }
-    
-    final sortedDest = destCount.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    
-    // 2. Favorite Model Type
-    final Map<String, int> modelCount = {};
-    for (final h in historyItems) {
-      final model = h['model_type'] ?? 'Unknown';
-      modelCount[model] = (modelCount[model] ?? 0) + 1;
-    }
-    final sortedModel = modelCount.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-
-    setState(() {
-      _popularDestination = sortedDest.isNotEmpty ? sortedDest.first.key : "N/A";
-      _popularDestinationCount = sortedDest.isNotEmpty ? sortedDest.first.value : 0;
-      _favoriteModel = sortedModel.isNotEmpty ? sortedModel.first.key : "N/A";
-      _favoriteModelCount = sortedModel.isNotEmpty ? sortedModel.first.value : 0;
-    });
-  }
-
-  // Metode untuk membangun SliverList (dipanggil dari DashboardPage)
-  SliverList buildSliverList() {
-    final String username = (context.findAncestorStateOfType<_DashboardPageState>()?._currentProfileData?['username'] ?? 'Pengguna');
-
-    if (_loading) {
-        return SliverList(
-          delegate: SliverChildListDelegate([
-            const Center(child: Padding(padding: EdgeInsets.all(32.0), child: CircularProgressIndicator())),
-          ]),
-        );
-    }
-    
-    if (_errorMessage.isNotEmpty) {
-        return SliverList(
-          delegate: SliverChildListDelegate([
-            Center(child: Padding(padding: const EdgeInsets.all(32.0), child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                    Text(_errorMessage, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
-                    const SizedBox(height: 10),
-                    ElevatedButton(onPressed: fetchDashboardData, child: const Text("Coba Muat Ulang Statistik")),
-                ],
-            ))),
-          ]),
-        );
-    }
-
-    return SliverList(
-      delegate: SliverChildListDelegate(
-        [
-          // === STATS SECTION BARU ===
-          _StatsBar(
-            totalUsers: _totalUsers,
-            popularDestination: _popularDestination,
-            popularDestinationCount: _popularDestinationCount,
-            favoriteModel: _favoriteModel,
-            favoriteModelCount: _favoriteModelCount,
-          ),
-          // === END STATS SECTION ===
-          
-          _HeroSection(username: username), 
-          const _FavoriteDestinationsSection(),
-          const _ARTorioSection(),
-          const _VRTorioSection(),
-          const _FooterSection(),
-        ],
-      ),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // Widget ini hanya berfungsi sebagai container state, konten ditampilkan oleh buildSliverList
-    // Memanggil buildSliverList di sini untuk memastikan ia memiliki reference ke statenya
-    return buildSliverList();
+    return const Column(children: [],);
   }
 }
-
-// -----------------------------------------------------------
-// 🧱 WIDGET STATISTIK BARU
-// -----------------------------------------------------------
-
-class _StatsBar extends StatelessWidget {
-  final int totalUsers;
-  final String popularDestination;
-  final int popularDestinationCount;
-  final String favoriteModel;
-  final int favoriteModelCount;
-  
-  const _StatsBar({
-    required this.totalUsers,
-    required this.popularDestination,
-    required this.popularDestinationCount,
-    required this.favoriteModel,
-    required this.favoriteModelCount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        alignment: WrapAlignment.center,
-        children: [
-          _StatCard(icon: Icons.people, label: 'Total Pengguna', value: totalUsers.toString()),
-          _StatCard(icon: Icons.favorite, label: 'Destinasi Populer', value: popularDestination, subValue: '$popularDestinationCount kunjungan'),
-          _StatCard(icon: Icons.auto_awesome, label: 'Model Favorit', value: favoriteModel, subValue: '$favoriteModelCount sesi'),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final String? subValue;
-
-  const _StatCard({required this.icon, required this.label, required this.value, this.subValue});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: (MediaQuery.of(context).size.width / 2) - 24, // Disesuaikan untuk 2 kolom
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: kPrimary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kPrimary.withOpacity(0.1)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: kPrimary, size: 28),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: kPrimary)),
-                if (subValue != null) 
-                  Text(subValue!, style: const TextStyle(fontSize: 10, color: Colors.black54)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// --- WIDGET BAWAAN LAINNYA (Sama seperti sebelumnya) ---
 
 class _CustomHeader extends StatelessWidget {
   final String username;
@@ -486,7 +208,7 @@ class _CustomHeader extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.logout),
           tooltip: 'Logout',
-          onPressed: onLogout, 
+          onPressed: onLogout, // Menggunakan fungsi logout dari state
         ),
       ],
     );
@@ -502,7 +224,7 @@ class _HeroSection extends StatelessWidget {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Container(
-      height: screenHeight * 0.45,
+      height: screenHeight * 0.5,
       decoration: BoxDecoration(
         image: DecorationImage(
           image: const AssetImage(assetHero),
@@ -522,7 +244,7 @@ class _HeroSection extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 28,
+                  fontSize: 32,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -671,6 +393,7 @@ class _ARTorioSection extends StatelessWidget {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
+                    // Logika navigasi ke AR Gallery
                     Navigator.pushNamed(context, '/argallery');
                   },
                   icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white),

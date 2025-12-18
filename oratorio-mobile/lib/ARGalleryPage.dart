@@ -16,12 +16,12 @@ class ScanArguments {
   ScanArguments({required this.destinationData, this.jwtToken});
 }
 
-// --- FUNGSI RESOLUSI IP (Disinkronkan dengan 172.20.10.2) ---
+// --- FUNGSI RESOLUSI IP (Disinkronkan dengan 192.168.1.12) ---
 String resolveApiBase(String configured) {
   if (Platform.isAndroid) {
-    // Jika perlu mengganti localhost menjadi IP, gunakan 172.20.10.2
+    // Jika perlu mengganti localhost menjadi IP, gunakan 192.168.1.12
     if (configured.contains('localhost') || configured.contains('127.0.0.1')) {
-      return 'http://172.20.10.2:5000';
+      return 'http://192.168.1.12:5000';
     }
   }
   return configured;
@@ -40,7 +40,7 @@ class ARGalleryPage extends StatefulWidget {
 
 class _ARGalleryPageState extends State<ARGalleryPage> {
   // BASE URL disinkronkan dengan IP yang ada di file .jsx Anda
-  final String apiBase = resolveApiBase('http://172.20.10.2:5000');
+  final String apiBase = resolveApiBase('http://192.168.1.12:5000');
   List<dynamic> items = [];
   bool loading = true;
   String? errorMessage; 
@@ -399,7 +399,7 @@ class _GalleryCard extends StatelessWidget {
     }
     
     final img = item['marker_image'] ?? '';
-    final resolvedBase = resolveApiBase('http://172.20.10.2:5000');
+    final resolvedBase = resolveApiBase('http://192.168.1.12:5000');
     final imgUrl = img.isNotEmpty ? '$resolvedBase/static/uploads/$img' : null;
 
     return Scaffold(

@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // --- BASE URL ---
 // 🎯 PASTIKAN IP INI SESUAI DENGAN IP FLASK ANDA SAAT INI
 // Mengganti dari 192.168.110.100 (lama) ke 192.168.1.28 (berdasarkan log Anda)
-const String kBaseUrl = 'http://172.20.10.2:5000'; 
+const String kBaseUrl = 'http://192.168.1.12:5000'; 
 const Color kPrimaryColor = Color(0xFF004D40); // Warna utama
 
 class ProfilePage extends StatefulWidget {
