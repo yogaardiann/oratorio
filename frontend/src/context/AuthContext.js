@@ -12,14 +12,16 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
-    const login = (userData) => {
+    const login = (userData, token) => {
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
-    };
+        localStorage.setItem("jwt_token", token); // Simpan token secara eksplisit
+    };  
 
     const logout = () => {
         setUser(null);
         localStorage.removeItem("user");
+        localStorage.removeItem("jwt_token");
         window.location.href = "/login";
     };
 

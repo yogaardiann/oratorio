@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext} from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { AuthContext } from '../context/AuthContext';
 
 const ARGalleryPage = () => {
+  const { user } = useContext(AuthContext);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-    axios.get('http://192.168.1.12:5000/api/wisata')
+    axios.get('http://172.31.128.1:5000/api/wisata')
       .then(response => {
         if (mounted) {
           setItems(response.data || []);
@@ -145,7 +147,7 @@ const ARGalleryPage = () => {
                   {/* Image Section */}
                   <div className="relative h-56 bg-gradient-to-br from-[#C9E4E2] to-[#005954] overflow-hidden">
                     <img
-                      src={`http://192.168.1.12:5000/static/uploads/${item.marker_image}`}
+                      src={`http://172.31.128.1:5000/static/uploads/${item.marker_image}`}
                       alt={item.name}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       onError={(e) => { e.target.src = "https://via.placeholder.com/400x300?text=No+Image"; }}
@@ -196,15 +198,22 @@ const ARGalleryPage = () => {
                     <Link 
                       to={`/ar/${item.id}`} 
                       className="block w-full"
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        if (!user) return;
+
                         try {
-                          await fetch('http://192.168.1.12:5000/api/history', {
+                          const token = localStorage.getItem("jwt_token"); // 
+                          // Pastikan IP dan Port sesuai dengan backend (localhost:5000)
+                          await fetch('http://localhost:5000/api/history/auth', { 
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}` // Token harus dikirim dengan awalan Bearer
+                            },
                             body: JSON.stringify({
                               destination_id: item.id,
                               action: 'scan_start',
-                              started_at: new Date().toISOString()
+                              model_type: 'AR'
                             })
                           });
                         } catch (e) {

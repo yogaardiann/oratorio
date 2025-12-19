@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 from db import get_connection  # Asumsi db.py ada
 import jwt
 from functools import wraps
+from history import history_bp
 
 logging.basicConfig(level=logging.INFO)
 
@@ -20,7 +21,7 @@ app = Flask(
     static_url_path="/assets",
     static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 )
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}}, allow_headers=["Content-Type", "Authorization"])
 
 # --- SECURITY CONSTANTS & UTILITY ---
 SECRET_KEY = 'your_secret_key_here_for_jwt'  # Ganti dengan key yang aman
@@ -28,33 +29,33 @@ TOKEN_LIFESPAN = timedelta(hours=24)
 
 
 def token_required(f):
-    """Decorator untuk memeriksa JWT token dan menyimpan user_id ke request.current_user_id."""
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get('Authorization')
+        
+        # Log untuk memantau token yang masuk di Docker
+        print(f"DEBUG: Masuk ke endpoint dengan header: {token}")
 
         if not token or not token.startswith('Bearer '):
+            print("DEBUG: Token tidak ditemukan atau format salah")
             return jsonify({'message': 'Authorization header is missing or malformed!'}), 401
 
         try:
             token = token.split(" ")[1]
             data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-            # Menyimpan user_id ke objek request
             request.current_user_id = data['user_id']
-
-        except jwt.ExpiredSignatureError:
-            return jsonify({'message': 'Token has expired!'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'message': 'Token is invalid!'}), 401
+            print(f"DEBUG: Token Valid. User ID: {data['user_id']}")
         except Exception as e:
-            logging.error(f"JWT Decoding Error: {e}")
-            return jsonify({'message': 'Invalid token format or server error!'}), 401
+            print(f"DEBUG: Gagal decode token: {str(e)}")
+            return jsonify({'message': 'Token is invalid!', 'error': str(e)}), 401
 
         return f(*args, **kwargs)
-
     return decorated
 # --- END SECURITY UTILITY ---
 
+# --- REGISTRASI BLUEPRINT ---
+# Menggunakan prefix /api sehingga rute di history.py menjadi /api/history
+app.register_blueprint(history_bp, url_prefix='/api')
 
 # UPLOAD FOLDER
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
@@ -505,38 +506,35 @@ def add_history():
 @app.route('/api/history/auth', methods=['POST'])
 @token_required
 def add_history_with_auth():
-    """Endpoint untuk mencatat history scan - dengan authentication"""
     try:
         data = request.get_json()
-        user_id_from_token = request.current_user_id
-        print(f"📥 [AUTH] Received history data: {data}, user_id_from_token: {user_id_from_token}")
-        
-        # Validasi minimal
-        if 'destination_id' not in data:
-            return jsonify({
-                "error": "Missing required field: destination_id",
-                "received_data": data
-            }), 400
+        user_id = request.current_user_id # Diambil dari token_required
         
         destination_id = data.get('destination_id')
-        action = data.get('action', 'scan_success')
+        action = data.get('action', 'scan_start')
         model_type = data.get('model_type', 'AR')
         
-        # Cari user_email dari database
-        user_email = ""
-        conn_temp = get_connection()
-        if conn_temp:
-            try:
-                cursor_temp = conn_temp.cursor(dictionary=True)
-                cursor_temp.execute("SELECT email FROM users WHERE user_id = %s", (user_id_from_token,))
-                user = cursor_temp.fetchone()
-                if user:
-                    user_email = user['email']
-                cursor_temp.close()
-            except Exception as e:
-                 logging.error("Error fetching user email for authenticated history: %s", e)
-            finally:
-                conn_temp.close()
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Ambil email user secara otomatis
+        cursor.execute("SELECT email FROM users WHERE user_id = %s", (user_id,))
+        user_data = cursor.fetchone()
+        email = user_data['email'] if user_data else "unknown@mail.com"
+
+        query = """
+            INSERT INTO history (user_id, user_email, destination_id, action, model_type, started_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+        """
+        cursor.execute(query, (user_id, email, destination_id, action, model_type))
+        conn.commit()
+        
+        return jsonify({"message": "History recorded"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
         
         if not user_email:
              user_email = f"user_{user_id_from_token}@example.com"

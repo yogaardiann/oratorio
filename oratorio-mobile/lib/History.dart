@@ -149,7 +149,6 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                 )
               else
-                // --- Daftar Riwayat (Mengikuti Tampilan history.jsx) ---
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),

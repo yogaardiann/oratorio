@@ -37,7 +37,7 @@ function LoginPage() {
       }
 
       // Simpan user di context (dan localStorage)
-      login(data.user);
+      login(data.user, data.token);
 
       // === Redirection sesuai role ===
       if (data.user.role === "admin") {
