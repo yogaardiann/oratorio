@@ -1,41 +1,19 @@
 import React from "react";
-// 1. Impor komponen Link dari react-router-dom
 import { Link } from 'react-router-dom';
 import "./ar-torio-section.css";
 
-// (Import gambar Anda tetap sama)
-import imgTugu from "../../assets/images/fav-dest-section-tugu-jogja.jpg";
+// Import gambar destinasi
+import imgGWK from '../../assets/images/gwk.jpg';
 import imgJamGadang from "../../assets/images/fav-dest-section-jam-gadang.jpg";
-import imgKresek from "../../assets/images/fav-dest-section-monumen-kresek.jpg";
-import imgBorobudur from "../../assets/images/fav-dest-section-candi-borobudur.jpg";
+import imgSurabaya from '../../assets/images/surabaya.jpg';
+import imgMonas from '../../assets/images/monas.jpg';
 
 function ARTorioSection() {
   const destinations = [
-    {
-      // 2. Tambahkan 'slug' sebagai ID unik untuk URL
-      slug: 'tugu-yogyakarta', 
-      image: imgTugu,
-      title: "Tugu Yogyakarta",
-      location: "D.I. Yogyakarta",
-    },
-    {
-      slug: 'jam-gadang',
-      image: imgJamGadang,
-      title: "Jam Gadang",
-      location: "Bukittinggi, Sumatera Barat",
-    },
-    {
-      slug: 'monumen-kresek',
-      image: imgKresek,
-      title: "Monumen Kresek",
-      location: "Madiun, Jawa Timur",
-    },
-    {
-      slug: 'candi-borobudur',
-      image: imgBorobudur,
-      title: "Candi Borobudur",
-      location: "Magelang, D.I. Yogyakarta",
-    },
+    { id: 1, image: imgGWK, title: "Patung Garuda Wisnu Kencana", location: "Badung, Bali" },
+    { id: 2, image: imgJamGadang, title: "Jam Gadang", location: "Bukittinggi, Sumatra Barat" },
+    { id: 3, image: imgSurabaya, title: "Patung Sura & Baya", location: "Surabaya, Jawa Timur" },
+    { id: 4, image: imgMonas, title: "Monumen Nasional", location: "Jakarta, DKI Jakarta" },
   ];
 
   return (
@@ -46,11 +24,10 @@ function ARTorioSection() {
         <div className="line"></div>
       </div>
 
+      {/* Kontainer kartu yang diarahkan ke ArGalleryPage (/ar) */}
       <div className="ar-card-container">
         {destinations.map((item) => (
-          // 3. Bungkus seluruh kartu dengan komponen <Link>
-          // Gunakan slug untuk membuat URL dinamis
-          <Link to={`/ar/${item.slug}`} key={item.slug} className="ar-card-link">
+          <Link to="/ar" key={item.id} className="ar-card-link">
             <div className="ar-card">
               <img src={item.image} alt={item.title} className="ar-image" />
               <div className="ar-card-content">
@@ -59,7 +36,10 @@ function ARTorioSection() {
             </div>
           </Link>
         ))}
-        <div className="arrow-button">›</div>
+        
+        {/* Navigasi panah juga diarahkan ke galeri utama */}
+        <Link to="/ar" className="arrow-button" style={{ textDecoration: 'none' }}>
+        </Link>
       </div>
     </section>
   );

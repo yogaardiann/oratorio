@@ -9,23 +9,28 @@ function RegisterPage() {
   const handleRegister = async (e) => {
     e.preventDefault(); // cegah reload default form
 
-    const res = await fetch("http://localhost:5000/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: email,   // email disimpan sebagai username
-        password: password
-      }),
-    });
+    // ✅ Simpan data sementara & kirim OTP
+    localStorage.setItem("otp_email", email);
+    localStorage.setItem("otp_data", JSON.stringify({ password }));
 
-    const data = await res.json();
-
-    if (data.status === "ok") {
-      alert("Register berhasil!");
-      window.location.href = "/login";
-    } else {
-      alert(data.message || "Gagal register");
+    try {
+      const res = await fetch("/api/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.status === "ok") {
+        window.location.href = "/otp"; // ✅ Redirect ke halaman OTP
+      } else {
+        alert(data.message || "Gagal mengirim OTP");
+      }
+    } catch (err) {
+      alert("Gagal terhubung ke server");
     }
+
+    // ❌ HAPUS SEMUA KODE DI BAWAH INI (termasuk fetch /api/register lama)
+    // Karena alur sekarang: Register → OTP Page → Register via temp_token
   };
   
 

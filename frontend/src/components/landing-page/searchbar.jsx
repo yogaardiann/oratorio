@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // Import navigasi
 import './searchbar.css';
 
-// SVG Icon untuk kaca pembesar
 const SearchIcon = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -9,18 +9,17 @@ const SearchIcon = ({ className }) => (
 );
 
 function ResponsiveSearchBar() {
-  // 1. Gunakan useState untuk melacak nilai input
   const [destination, setDestination] = useState('');
-  const [date, setDate] = useState('');
+  const navigate = useNavigate();
 
-  // 2. Event handler untuk menangani submit form
   const handleSubmit = (event) => {
-    event.preventDefault(); // Mencegah halaman reload saat form disubmit
-    // Untuk saat ini, kita tampilkan hasilnya di console
-    // Nantinya, di sini kita bisa memicu logika pencarian data
-    console.log('Mencari destinasi:', destination);
-    console.log('Pada tanggal:', date);
-    alert(`Mencari: ${destination}\nKapan: ${date || 'Kapan saja'}`);
+    event.preventDefault();
+    // Navigasi ke /ar dengan parameter query 'search'
+    if (destination.trim()) {
+      navigate(`/ar?search=${encodeURIComponent(destination)}`);
+    } else {
+      navigate('/ar');
+    }
   };
 
   return (
@@ -31,7 +30,7 @@ function ResponsiveSearchBar() {
         <SearchIcon className="search-icon-mobile" />
         <input
           type="text"
-          placeholder="Search for a place or activity"
+          placeholder="Cari destinasi atau aktivitas..."
           className="search-input-mobile"
           value={destination}
           onChange={(e) => setDestination(e.target.value)}
@@ -61,4 +60,3 @@ function ResponsiveSearchBar() {
 }
 
 export default ResponsiveSearchBar;
-

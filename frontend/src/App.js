@@ -8,6 +8,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import LandingPage from './pages/landing_page';
 import LoginPage from './pages/login';
 import RegisterPage from './pages/register';
+import OTPPage from './pages/OTPPage';
 import Dashboard from './pages/dashboard';
 
 // Import Halaman AR (Updated Logic)
@@ -41,6 +42,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/otp" element={<OTPPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/history" element={<History />} />
             <Route path="/profile" element={<ProfilePage />} />

@@ -12,7 +12,7 @@ const ArDetailGuidancePage = () => {
 
   useEffect(() => {
     let mounted = true;
-    axios.get(`http://192.168.23.214:5000/api/wisata/${id}`)
+    axios.get(`https://unreveling-marilynn-nontheistical.ngrok-free.dev/api/wisata/${id}`)
       .then(res => {
         if (mounted) {
           setData(res.data);
@@ -433,7 +433,7 @@ const ArDetailGuidancePage = () => {
                 <div className="relative bg-gradient-to-br from-[#C9E4E2] to-[#005954] rounded-3xl overflow-hidden shadow-2xl group-hover:scale-105 transition-transform duration-500">
                   <div className="aspect-video flex items-center justify-center p-6">
                     <img
-                      src={`http://192.168.23.214:5000/static/uploads/${data.marker_image}`}
+                      src={`/static/uploads/${data.marker_image}`}
                       alt="AR Marker"
                       className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl border-4 border-white"
                       onError={(e) => { 

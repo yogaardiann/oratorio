@@ -4,17 +4,17 @@ import './fav-destination-section.css';
 import useScrollAnimation from '../../animations/useScrollAnimation';
 
 // Impor setiap gambar dari folder assets
-import imgKresek from '../../assets/images/fav-dest-section-monumen-kresek.jpg';
-import imgMonas from '../../assets/images/fav-dest-section-tugu-monas.jpg';
-import imgTugu from '../../assets/images/fav-dest-section-tugu-jogja.jpg';
+import imgGWK from '../../assets/images/gwk.jpg';
+import imgMonas from '../../assets/images/monas.jpg';
+import imgSurabaya from '../../assets/images/surabaya.jpg';
 import imgJamGadang from '../../assets/images/fav-dest-section-jam-gadang.jpg';
 import imgBorobudur from '../../assets/images/fav-dest-section-candi-borobudur.jpg';
 import imgPrambanan from '../../assets/images/fav-dest-section-candi-prambanan.jpg';
 
 const destinationsData = [
-  { name: "Monumen Kresek", image: imgKresek },
+  { name: "GWK", image: imgGWK },
   { name: "Monas", image: imgMonas },
-  { name: "Tugu Yogyakarta", image: imgTugu },
+  { name: "Patung Sura & Baya", image: imgSurabaya },
   { name: "Jam Gadang", image: imgJamGadang },
   { name: "Candi Borobudur", image: imgBorobudur },
   { name: "Candi Prambanan", image: imgPrambanan },

@@ -33,8 +33,18 @@ function Header() {
         {/* CENTER MENU */}
         <div className="header-center">
           <a href="/" className="header-link">Home</a>
+        {user ? (
           <a href="/history" className="header-link">History</a>
-
+        ) : (
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="header-link"
+            style={{ cursor: 'pointer' }}
+          >
+            History
+          </button>
+        )}
+        {user && (
           <div
             className="header-dropdown"
             onMouseEnter={() => setIsHistoryOpen(true)}
@@ -50,10 +60,10 @@ function Header() {
             {isHistoryOpen && (
               <div className="dropdown-menu">
                 <a href="/ar" className="dropdown-item">🌀 AR Interface</a>
-                <a href="/vr" className="dropdown-item">👓 VR Interface</a>
               </div>
             )}
           </div>
+        )}
         </div>
 
         {/* RIGHT SIDE: USER */}
@@ -121,6 +131,11 @@ function Header() {
             <a href="/profile" className="header-link">Profile</a>
             <a onClick={handleLogout} className="header-link">Logout</a>
           </>
+        )}
+        {user && (
+          <>
+          <a href="/ar" className="header-link">🌀 AR Interface</a>
+        </>
         )}
       </div>
     </header>

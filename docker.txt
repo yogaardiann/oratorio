@@ -22,10 +22,13 @@ services:
       - DB_USER=root
       - DB_PASSWORD=rootpassword
       - DB_NAME=oratorio
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     ports:
       - "5000:5000" # Wajib agar React di luar Docker bisa "nembak" ke sini
     depends_on:
       - db
+      - redis
     volumes:
       - ./backend/static/uploads:/app/static/uploads
 
@@ -43,5 +46,18 @@ services:
     extra_hosts:
       host.docker.internal: host-gateway
 
+  # --- Redis OTP ----
+  redis:
+    image: redis:7-alpine
+    container_name: oratorio_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data 
+
 volumes:
   mysql_data:
+  redis_data:
+
+  

@@ -3,18 +3,17 @@ import { useParams, Link } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
 import axios from 'axios';
 
-const LAPTOP_IP = "172.31.128.1";
-const BACKEND_PORT = "5000";
-const FRONTEND_PORT = "3000";
+// 🔑 GANTI DENGAN URL NGROK ANDA YANG SEBENARNYA — TANPA SPASI!
+// Contoh valid: "https://7d3b-180-247-27-123.ngrok-free.app"
+const NGROK_URL = "https://unreveling-marilynn-nontheistical.ngrok-free.dev";
 
 const ScanARPage = () => {
   const { id } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
-  const LOCAL_API_URL = `http://localhost:${BACKEND_PORT}`;
-  const IMAGE_BASE_URL = `http://localhost:${BACKEND_PORT}`;
-  const PUBLIC_QR_URL = `http://${LAPTOP_IP}:${FRONTEND_PORT}/mobile-ar/${id}`;
+  // ✅ QR code langsung ke HTTPS ngrok
+  const PUBLIC_QR_URL = `${NGROK_URL}/mobile-ar/${id}`;
 
   const postHistory = async (payload) => {
     const token = localStorage.getItem("jwt_token");
@@ -23,7 +22,8 @@ const ScanARPage = () => {
       return;
     }
     try {
-      const response = await fetch(`${LOCAL_API_URL}/api/history/auth`, {
+      // ✅ Pakai path relatif — karena origin = NGROK_URL (HTTPS)
+      const response = await fetch(`/api/history/auth`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -31,7 +31,6 @@ const ScanARPage = () => {
         },
         body: JSON.stringify(payload)
       });
-      
       console.log(`History (${payload.action}) response:`, response.status);
     } catch (e) {
       console.error('history post failed:', e);
@@ -39,24 +38,22 @@ const ScanARPage = () => {
   };
 
   useEffect(() => {
-    // Record scan_start segera saat masuk halaman
     const startTime = new Date().toISOString();
     const mountTimeMs = Date.now();
     
     postHistory({
-      destination_id: id ? parseInt(id) : null,
+      destination_id: id ? parseInt(id, 10) : null,
       action: 'scan_start',
       model_type: 'AR',
       started_at: startTime
     });
 
     return () => {
-      // Record scan_end saat meninggalkan halaman
       const endTime = new Date().toISOString();
       const duration = Math.max(0, Math.round((Date.now() - mountTimeMs) / 1000));
       
       postHistory({
-        destination_id: id ? parseInt(id) : null,
+        destination_id: id ? parseInt(id, 10) : null,
         action: 'scan_end',
         model_type: 'AR',
         started_at: startTime,
@@ -67,14 +64,15 @@ const ScanARPage = () => {
   }, [id]);
 
   useEffect(() => {
-    axios.get(`${LOCAL_API_URL}/api/wisata/${id}`)
+    // ✅ Gunakan path RELATIF — tidak perlu host!
+    axios.get(`/api/wisata/${id}`)
       .then(res => {
         setData(res.data);
       })
       .catch(err => {
-        setError("Gagal mengambil data. Pastikan backend Flask berjalan.");
+        setError("Gagal mengambil data AR. Pastikan ngrok aktif dan backend berjalan.");
       });
-  }, [id, LOCAL_API_URL]);
+  }, [id]);
 
   if (error)
     return (
@@ -95,7 +93,7 @@ const ScanARPage = () => {
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50 to-teal-50">
         <div className="text-center">
           <div className="text-7xl mb-6 animate-spin inline-block">⏳</div>
-          <h3 className="text-3xl font-bold text-slate-900 mb-3">Memuat Data</h3>
+          <h3 className="text-3xl font-bold text-slate-900 mb-3">Memuat Data AR...</h3>
           <p className="text-slate-600 font-medium">Harap tunggu sebentar...</p>
         </div>
       </div>
@@ -124,8 +122,9 @@ const ScanARPage = () => {
             <div className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-emerald-400 rounded-3xl blur opacity-30 group-hover:opacity-100 transition duration-500"></div>
               <div className="relative bg-white p-8 rounded-3xl border-2 border-slate-200 shadow-xl">
+                {/* ✅ Gunakan path relatif — otomatis HTTPS */}
                 <img
-                  src={`${IMAGE_BASE_URL}/static/uploads/${data.marker_image}`}
+                  src={`/static/uploads/${data.marker_image}`}
                   alt="AR Marker"
                   className="w-full h-auto rounded-2xl shadow-lg group-hover:scale-105 transition-transform duration-300 border-2 border-slate-100"
                   onError={(e) => {
@@ -153,14 +152,17 @@ const ScanARPage = () => {
             <div className="relative group mb-12">
               <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-blue-400 rounded-3xl blur opacity-30 group-hover:opacity-100 transition duration-500"></div>
               <div className="relative bg-white p-8 rounded-3xl flex items-center justify-center shadow-2xl border-2 border-slate-200">
-                <QRCodeCanvas value={PUBLIC_QR_URL} size={260} level="H" includeMargin={true} />
+                {/* ✅ QR code sekarang HTTPS */}
+                <QRCodeCanvas 
+                  value={PUBLIC_QR_URL} 
+                  size={260} 
+                  level="H" 
+                  includeMargin={true} 
+                />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-400 rounded-2xl p-6 text-center">
-              <p className="text-blue-700 text-xs font-bold uppercase tracking-wider mb-3">🔧 IP Jaringan</p>
-              <p className="text-blue-900 text-3xl font-black font-mono">{LAPTOP_IP}</p>
-            </div>
+            {/* ✅ HAPUS bagian "IP Jaringan" — tidak relevan lagi */}
           </div>
         </div>
       </div>
