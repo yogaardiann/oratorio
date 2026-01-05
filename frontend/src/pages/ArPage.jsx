@@ -63,7 +63,7 @@ const ArPage = () => {
               <span className="text-2xl group-hover:-translate-x-1 transition-transform">←</span>
               Kembali
             </Link>
-            <h1 className="text-2xl font-black bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent max-w-xs truncate">
+            <h1 className="text-2xl font-black bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent truncate">
               {data.name}
             </h1>
             <div className="w-20"></div>
@@ -109,17 +109,6 @@ const ArPage = () => {
               </p>
             </div>
 
-            {/* Category Card */}
-            <div className="bg-white border-2 border-slate-200 rounded-3xl p-6 hover:border-teal-400 hover:shadow-lg transition-all group">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="text-3xl">🏷️</div>
-                <h3 className="text-slate-500 text-sm font-bold uppercase tracking-wider">Kategori</h3>
-              </div>
-              <p className="text-slate-900 text-lg font-bold group-hover:text-teal-600 transition-colors">
-                {data.category}
-              </p>
-            </div>
-
             {/* Scan AR Button */}
             <Link
               to={`/scan/${data.id}`}
@@ -134,7 +123,7 @@ const ArPage = () => {
         {/* Description Section */}
         <div className="bg-white border-2 border-slate-200 rounded-3xl p-8 mb-12 hover:shadow-lg transition-all">
           <h2 className="text-3xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-            <span className="text-4xl">📖</span>
+            <span className="text-1xl">📖</span>
             Tentang Wisata Ini
           </h2>
           <p className="text-slate-700 leading-relaxed text-lg">
@@ -147,8 +136,8 @@ const ArPage = () => {
           
           {/* How to Use */}
           <div className="bg-gradient-to-br from-teal-50 to-emerald-50 border-2 border-teal-300 rounded-3xl p-8 hover:shadow-lg transition-all">
-            <h3 className="text-2xl font-bold text-teal-900 mb-6 flex items-center gap-3">
-              <span className="text-3xl">🎮</span>
+            <h3 className="text-1xl font-bold text-teal-900 mb-6 flex items-center gap-3">
+              <span className="text-2xl">🎮</span>
               Cara Menggunakan
             </h3>
             <ol className="space-y-4 text-teal-800">
@@ -173,8 +162,8 @@ const ArPage = () => {
 
           {/* Requirements */}
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-3xl p-8 hover:shadow-lg transition-all">
-            <h3 className="text-2xl font-bold text-blue-900 mb-6 flex items-center gap-3">
-              <span className="text-3xl">⚙️</span>
+            <h3 className="text-1xl font-bold text-blue-900 mb-6 flex items-center gap-3">
+              <span className="text-2xl">⚙️</span>
               Persyaratan
             </h3>
             <ul className="space-y-4 text-blue-800">
@@ -200,8 +189,8 @@ const ArPage = () => {
 
         {/* Tips Section */}
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-8 mb-12">
-          <h3 className="text-2xl font-bold text-amber-900 mb-6 flex items-center gap-3">
-            <span className="text-3xl">💡</span>
+          <h3 className="text-1xl font-bold text-amber-900 mb-6 flex items-center gap-3">
+            <span className="text-2xl">💡</span>
             Tips & Trik
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-amber-800">
@@ -230,7 +219,7 @@ const ArPage = () => {
             to={`/scan/${data.id}`}
             className="inline-block bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold py-5 px-12 rounded-full text-lg transition-all duration-300 hover:shadow-2xl hover:shadow-teal-500/50 hover:scale-105 border-2 border-teal-600 flex items-center gap-3"
           >
-            <span className="text-2xl">📲</span>
+            <span className="text-3xl">📲</span>
             <span>Mulai Scan AR Sekarang</span>
           </Link>
         </div>

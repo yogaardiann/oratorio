@@ -1,30 +1,89 @@
-# D:\yogss\oratorio\BE\OratorioBE-main\app.py (FILE TUNGGAL)
-
 import os
 import logging
 import json
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, render_template
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from db import get_connection  # Asumsi db.py ada
 import jwt
 from functools import wraps
+from collections import defaultdict
+import time
+import redis
+import random
+import smtplib
+from werkzeug.middleware.proxy_fix import ProxyFix
+from email.mime.text import MIMEText
+from datetime import datetime
+from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
+load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
 
+# ✅ Redis graceful init (jangan crash jika Redis lambat)
+
+
+# Baca konfigurasi
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "yogaardian114@student.uns.ac.id")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "ffbfmmgadegzuxma")
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
 # --- APLIKASI UTAMA ---
 app = Flask(
     __name__,
-    static_url_path="/assets",
-    static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+    static_url_path='/static', 
+    static_folder='static',
+    template_folder='templates'
 )
-CORS(app)
+
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,
+    x_proto=1,    # ← Biar Flask tahu: "request asli HTTPS"
+    x_host=1,
+    x_port=1,
+    x_prefix=1
+)
+
+CORS(app, resources={r"/api/*": {"origins": "*"}}, allow_headers=["Content-Type", "Authorization"])
+
+r = None
+try:
+    r = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=1,
+        decode_responses=True,
+        socket_connect_timeout=5,
+        socket_timeout=5
+    )
+    # Coba koneksi tanpa raise exception
+    r.ping()
+    logging.info(f"✅ Redis connected at {REDIS_HOST}:{REDIS_PORT}")
+except Exception as e:
+    logging.warning(f"⚠️ Redis not ready yet (OTP disabled): {e}")
+    # Jangan raise SystemExit — biarkan app jalan tanpa OTP sementara
+    r = None
 
 # --- SECURITY CONSTANTS & UTILITY ---
 SECRET_KEY = 'your_secret_key_here_for_jwt'  # Ganti dengan key yang aman
 TOKEN_LIFESPAN = timedelta(hours=24)
+
+def format_date_for_mysql(date_str):
+    if not date_str:
+        return None
+    try:
+        # Menghapus 'Z' dan mengganti 'T' dengan spasi
+        clean_date = date_str.replace('Z', '').replace('T', ' ')
+        # Membuang milidetik (bagian setelah titik) karena MySQL DATETIME standar tidak menerimanya
+        return clean_date.split('.')[0]
+    except Exception as e:
+        logging.error(f"Date formatting error: {e}")
+        return datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
 
 def token_required(f):
@@ -68,6 +127,71 @@ def save_file(file):
     file.save(path)
     return filename
 
+# app.py - TAMBAHKAN DI AWAL FILE SETELAH IMPORTS
+# -------------------------------------------------------------------
+# NGrok Proxy Configuration untuk Mobile AR
+# -------------------------------------------------------------------
+
+# URL Ngrok Anda
+NGROK_BASE_URL = "hhttps://arcelia-unpronounceable-decretively.ngrok-free.dev"
+
+@app.route('/mobile-ar/<int:destination_id>')
+def mobile_ar_proxy(destination_id):
+    """
+    Proxy untuk mobile: Mengarahkan ke React (ngrok) 
+    dengan session/token yang tepat
+    """
+    # 1. Verifikasi JWT token dari request headers
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # 2. Redirect ke React dengan token
+    react_url = f"{NGROK_BASE_URL}/mobile-ar/{destination_id}"
+    
+    # 3. Return redirect response atau proxy langsung
+    response = {
+        "status": "ok",
+        "message": "Mobile AR session created",
+        "redirect_url": react_url,
+        "token": token.replace("Bearer ", "")
+    }
+    
+    return jsonify(response), 200
+
+@app.route('/api/mobile-session', methods=['POST'])
+@token_required
+def create_mobile_session():
+    """
+    Create mobile AR session dengan JWT
+    """
+    data = request.get_json()
+    destination_id = data.get('destination_id')
+    
+    if not destination_id:
+        return jsonify({"error": "Destination ID required"}), 400
+    
+    # Generate unique session ID
+    import uuid
+    session_id = str(uuid.uuid4())
+    
+    # Store session in Redis (opsional)
+    if r:
+        try:
+            r.setex(f"mobile:session:{session_id}", 3600, json.dumps({
+                "user_id": request.current_user_id,
+                "destination_id": destination_id,
+                "created_at": datetime.utcnow().isoformat()
+            }))
+        except:
+            pass
+    
+    # Return session info
+    return jsonify({
+        "session_id": session_id,
+        "ar_url": f"{NGROK_BASE_URL}/mobile-ar/{destination_id}",
+        "timestamp": datetime.utcnow().isoformat()
+    }), 201
 
 # Static serving helpers
 @app.route('/assets/<path:filename>')
@@ -262,40 +386,45 @@ def add_wisata():
     if 'marker' not in request.files or 'mind' not in request.files or 'model' not in request.files:
         return jsonify({"status": "error", "message": "Files marker/mind/model required"}), 400
 
+    # Ambil data teks
     name = request.form.get('name') or ""
     description = request.form.get('description') or ""
     location = request.form.get('location') or ""
 
+    # Ambil file-file
     marker = request.files['marker']
     mind = request.files['mind']
     model = request.files['model']
+    audio = request.files.get('audio') # Ambil audio (boleh kosong)
 
     try:
         marker_filename = save_file(marker)
         mind_filename = save_file(mind)
         model_filename = save_file(model)
+        # 🔥 Simpan file audio jika ada
+        audio_filename = save_file(audio) if audio else None
 
         conn = get_connection()
         if not conn:
             return jsonify({"status": "error", "message": "DB connection failed"}), 500
+        
         cursor = conn.cursor()
+        # ✅ PERBAIKAN: Masukkan audio_file ke Query INSERT
         cursor.execute("""
-            INSERT INTO ar_destinations (name, description, location, marker_image, mind_file, glb_model)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (name, description, location, marker_filename, mind_filename, model_filename))
+            INSERT INTO ar_destinations (name, description, location, marker_image, mind_file, glb_model, audio_file)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (name, description, location, marker_filename, mind_filename, model_filename, audio_filename))
+        
         conn.commit()
         new_id = cursor.lastrowid
-        return jsonify({"status": "ok", "message": "Created", "id": new_id}), 201
+        return jsonify({"status": "ok", "message": "Created with audio", "id": new_id}), 201
     except Exception as e:
         logging.error("Error adding wisata: %s", e)
-        if 'conn' in locals():
-            conn.rollback()
+        if 'conn' in locals(): conn.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        if 'cursor' in locals():
-            cursor.close()
-        if 'conn' in locals():
-            conn.close()
+        if 'cursor' in locals(): cursor.close()
+        if 'conn' in locals(): conn.close()
 
 
 # PUT update wisata
@@ -336,6 +465,10 @@ def update_wisata(id):
                 model_filename = save_file(request.files['model'])
                 set_parts.append("glb_model=%s")
                 params.append(model_filename)
+            if 'audio' in request.files:
+                audio_filename = save_file(request.files['audio'])
+                set_parts.append("audio_file=%s")
+                params.append(audio_filename)
 
             if not set_parts:
                 return jsonify({"status": "error", "message": "No fields to update"}), 400
@@ -505,11 +638,10 @@ def add_history():
 @app.route('/api/history/auth', methods=['POST'])
 @token_required
 def add_history_with_auth():
-    """Endpoint untuk mencatat history scan - dengan authentication"""
+    """Endpoint untuk mencatat history scan - dengan authentication & normalisasi tanggal"""
     try:
         data = request.get_json()
         user_id_from_token = request.current_user_id
-        print(f"📥 [AUTH] Received history data: {data}, user_id_from_token: {user_id_from_token}")
         
         # Validasi minimal
         if 'destination_id' not in data:
@@ -534,29 +666,24 @@ def add_history_with_auth():
                     user_email = user['email']
                 cursor_temp.close()
             except Exception as e:
-                 logging.error("Error fetching user email for authenticated history: %s", e)
+                 logging.error(f"Error fetching user email: {e}")
             finally:
                 conn_temp.close()
         
         if not user_email:
              user_email = f"user_{user_id_from_token}@example.com"
         
-        # Timestamp dan Durasi
-        started_at_str = data.get('started_at')
-        ended_at_str = data.get('ended_at')
-        duration_seconds = data.get('duration_seconds')
+        # --- 🎯 PERBAIKAN KRITIS: Normalisasi Format Tanggal ---
+        started_at_raw = data.get('started_at')
+        ended_at_raw = data.get('ended_at')
         
-        # Normalize timestamps
-        started_at = started_at_str if started_at_str else datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-        ended_at = ended_at_str if ended_at_str else None
+        # Kita panggil fungsi format_date_for_mysql yang sudah kamu buat di atas
+        started_at = format_date_for_mysql(started_at_raw) if started_at_raw else datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        ended_at = format_date_for_mysql(ended_at_raw) if ended_at_raw else None
         
-        # Simpan/Update ke database (asumsi Upsert Logic diimplementasikan di sini untuk History)
-        # NOTE: Karena logika Upsert yang kompleks ada di destinations.py (blueprint),
-        # dan history.py/app.py hanya punya INSERT, kita asumsikan untuk saat ini
-        # bahwa mobile client hanya menggunakan endpoint ini yang melakukan INSERT.
-        # Jika Anda ingin Upsert (1 entri per destinasi), Anda HARUS menggunakan destinations.py
-        # atau menerapkan logika Upsert di endpoint ini. Kita stick dengan INSERT (default app.py).
+        duration_seconds = data.get('duration_seconds', 0)
         
+        # Simpan ke database
         conn = get_connection()
         if not conn:
             return jsonify({"message": "DB connection failed"}), 500
@@ -566,13 +693,15 @@ def add_history_with_auth():
             INSERT INTO history (user_id, user_email, destination_id, action, model_type, started_at, ended_at, duration_seconds)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
+        
+        # Gunakan variabel started_at dan ended_at yang SUDAH DIFORMAT
         cursor.execute(query, (
             user_id_from_token,
             user_email,
             destination_id,
             action,
             model_type,
-            started_at,
+            started_at, 
             ended_at,
             duration_seconds
         ))
@@ -583,15 +712,16 @@ def add_history_with_auth():
         cursor.close()
         conn.close()
         
-        print(f"✅ [AUTH] History recorded: user_id={user_id_from_token}, destination_id={destination_id}")
+        print(f"✅ [AUTH] History recorded successfully: ID {history_id} for User {user_id_from_token}")
         
         return jsonify({
+            "status": "ok",
             "message": "History recorded successfully",
             "history_id": history_id
         }), 201
         
     except Exception as e:
-        print(f"❌ [AUTH] Error in /api/history/auth: {str(e)}")
+        logging.error(f"❌ [AUTH] Error in /api/history/auth: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -678,39 +808,66 @@ def get_history_by_user(user_id):
 
 @app.route("/api/register", methods=["POST"])
 def register():
-    data = request.json
-    email = data.get("email")
-    password = data.get("password")
-    name = data.get("name") or (email.split("@")[0] if email else None)
-
-    if not email or not password:
-        return jsonify({"status": "error", "message": "Field Email atau Password hilang"}), 400
-
-    hashed_password = generate_password_hash(password)
-
-    conn = get_connection()
-    if not conn:
-        return jsonify({"status": "error", "message": "Gagal terhubung ke database"}), 500
-
-    cursor = conn.cursor(dictionary=True)
+    """Endpoint: /api/register — hanya bisa dipanggil setelah OTP diverifikasi"""
     try:
-        cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
-        if cursor.fetchone():
-            return jsonify({"status": "error", "message": "Email sudah terdaftar"}), 400
+        data = request.get_json()
+        temp_token = data.get("temp_token")  # ✅ Dari hasil /api/otp/verify
+        password = data.get("password")
+        name = data.get("name")
 
-        cursor.execute("""
-            INSERT INTO users (name, email, password, role)
-            VALUES (%s, %s, %s, %s)
-        """, (name, email, hashed_password, "user"))
-        conn.commit()
-        return jsonify({"status": "ok", "message": "Registrasi berhasil"}), 201
+        if not temp_token or not password:
+            return jsonify({"status": "error", "message": "Token verifikasi OTP diperlukan"}), 400
+
+        # Verifikasi temp token
+        try:
+            decoded = jwt.decode(temp_token, SECRET_KEY, algorithms=['HS256'])
+            if not decoded.get('temp'):
+                return jsonify({"status": "error", "message": "Token tidak valid untuk registrasi"}), 400
+            email = decoded['email']
+        except Exception:
+            return jsonify({"status": "error", "message": "Token verifikasi kadaluarsa atau tidak valid"}), 401
+
+        if len(password) < 6:
+            return jsonify({"status": "error", "message": "Password minimal 6 karakter"}), 400
+
+        hashed_password = generate_password_hash(password)
+        final_name = name or email.split("@")[0]
+
+        # Simpan ke DB
+        conn = get_connection()
+        if not conn:
+            return jsonify({"status": "error", "message": "Gagal terhubung ke database"}), 500
+
+        cursor = conn.cursor(dictionary=True)
+        try:
+            cursor.execute("SELECT user_id FROM users WHERE email=%s", (email,))
+            if cursor.fetchone():
+                return jsonify({"status": "error", "message": "Email sudah terdaftar"}), 400
+
+            cursor.execute("""
+                INSERT INTO users (name, email, password, role)
+                VALUES (%s, %s, %s, %s)
+            """, (final_name, email, hashed_password, "user"))
+            conn.commit()
+
+            logging.info(f"User registered: {email}")
+            return jsonify({
+                "status": "ok", 
+                "message": "Registrasi berhasil",
+                "user": {"email": email, "name": final_name}
+            }), 201
+
+        except Exception as e:
+            conn.rollback()
+            logging.error(f"DB register error: {e}")
+            return jsonify({"status": "error", "message": "Gagal menyimpan ke database"}), 500
+        finally:
+            cursor.close()
+            conn.close()
+
     except Exception as e:
-        logging.error("Error during registration: %s", e)
-        conn.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
+        logging.error(f"Register error: {e}")
+        return jsonify({"status": "error", "message": "Registrasi gagal"}), 500
 
 
 @app.route("/api/login", methods=["POST"])
@@ -787,6 +944,172 @@ def health_check():
     """Simple health check"""
     return jsonify({"status": "healthy", "timestamp": datetime.utcnow().isoformat()}), 200
 
+
+# =========================================================================
+# === OTP ROUTES (Baru) ===================================================
+# =========================================================================
+
+# Konfigurasi email (Ganti dengan kredensial Anda)
+
+def send_email_otp(email, otp):
+    """Kirim OTP via email — return True jika sukses"""
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_EMAIL
+        msg['To'] = email
+        msg['Subject'] = "🎯 Verifikasi Akun Oratorio — Kode OTP"
+        
+        body = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 2.5rem; margin-bottom: 12px;">🔐</div>
+            <h2 style="color: #0f172a; margin: 0;">Verifikasi Akun Anda</h2>
+            <p style="color: #64748b; margin-top: 8px;">Masukkan kode berikut ke aplikasi Oratorio</p>
+          </div>
+          
+          <div style="text-align: center; margin: 32px 0;">
+            <div style="font-size: 2.25rem; font-weight: bold; letter-spacing: 12px; color: #0d9488; background: white; padding: 16px; border-radius: 12px; display: inline-block; border: 2px solid #e2e8f0;">
+              {otp}
+            </div>
+          </div>
+          
+          <div style="text-align: center; color: #94a3b8; font-size: 0.875rem; margin-top: 24px;">
+            <p>Kode berlaku 5 menit. Jangan berikan ke siapa pun.</p>
+            <p>© 2026 Oratorio. Jelajahi Dunia AR/VR.</p>
+          </div>
+        </div>
+        """
+        msg.attach(MIMEText(body, 'html'))
+
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_EMAIL, SMTP_PASSWORD)
+        server.sendmail(SMTP_EMAIL, email, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        logging.error(f"Email OTP error for {email}: {e}")
+        return False
+
+
+def is_rate_limited(email: str) -> bool:
+    if r is None:
+        return False  # Nonaktifkan rate limit jika Redis mati
+    try:
+        key = f"otp:rate:{email}"
+        count = r.incr(key)
+        if count == 1:
+            r.expire(key, 600)
+        return count > 3
+    except:
+        return False
+
+def store_otp(email: str, otp: str):
+    if r is None:
+        return
+    try:
+        r.setex(f"otp:code:{email}", 300, otp)
+    except:
+        pass
+
+def get_otp(email: str) -> str | None:
+    if r is None:
+        return None
+    try:
+        return r.get(f"otp:code:{email}")
+    except:
+        return None
+
+def delete_otp(email: str):
+    if r is None:
+        return
+    try:
+        r.delete(f"otp:code:{email}")
+    except:
+        pass
+
+
+@app.route("/api/otp/send", methods=["POST"])
+def send_otp():
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        
+        if not email or "@" not in email:
+            return jsonify({"status": "error", "message": "Email tidak valid"}), 400
+        
+        if is_rate_limited(email):
+            return jsonify({"status": "error", "message": "Terlalu banyak permintaan. Coba lagi dalam 10 menit."}), 429
+        
+        otp = str(random.randint(100000, 999999))
+        store_otp(email, otp)  # ✅ Simpan ke Redis
+        
+        if not send_email_otp(email, otp):
+            # Jika gagal kirim email, hapus OTP
+            delete_otp(email)
+            return jsonify({"status": "error", "message": "Gagal mengirim email. Coba lagi."}), 500
+        
+        logging.info(f"OTP {otp} sent to {email} (stored in Redis)")
+        return jsonify({"status": "ok", "message": "OTP terkirim ke email Anda"}), 200
+    
+    except Exception as e:
+        logging.error(f"Send OTP error: {e}")
+        return jsonify({"status": "error", "message": "Terjadi kesalahan internal"}), 500
+
+
+@app.route("/api/otp/verify", methods=["POST"])
+def verify_otp():
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        otp_input = data.get("otp")
+        
+        if not email or not otp_input:
+            return jsonify({"status": "error", "message": "Email dan OTP wajib diisi"}), 400
+        
+        # 🔐 Tambahkan rate limit untuk verifikasi
+        verify_key = f"otp:verify:{email}"
+        verify_count = r.incr(verify_key)
+        if verify_count == 1:
+            r.expire(verify_key, 300)  # 5 menit
+        if verify_count > 5:  # Maks 5 percobaan
+            return jsonify({"status": "error", "message": "Terlalu banyak percobaan. Coba lagi dalam 5 menit."}), 429
+        
+        # ✅ Sukses — hapus OTP & beri token
+        delete_otp(email)
+        
+        temp_token = jwt.encode({
+            'email': email,
+            'temp': True,
+            'exp': datetime.utcnow() + timedelta(minutes=10)
+        }, SECRET_KEY, algorithm='HS256')
+        
+        return jsonify({
+            "status": "ok",
+            "message": "OTP terverifikasi",
+            "temp_token": temp_token
+        }), 200
+    
+    except Exception as e:
+        logging.error(f"Verify OTP error: {e}")
+        return jsonify({"status": "error", "message": "Verifikasi gagal"}), 500
+
+# --- Scan Audio ---
+
+@app.route('/scan/<int:id>')
+def scan_destination(id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM ar_destinations WHERE id = %s", (id,))
+    dest = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if not dest:
+        return "Destinasi tidak ditemukan", 404
+
+    # Kirim data ke template HTML (kita buat di langkah 2)
+    return render_template('scan_info.html', dest=dest)
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)

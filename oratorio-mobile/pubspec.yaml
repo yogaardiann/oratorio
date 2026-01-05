@@ -31,12 +31,12 @@ dependencies:
   # Flutter SDK harus didefinisikan dengan sub-key 'sdk: flutter'
   flutter:
     sdk: flutter
-  http: ^1.2.0
+  http: ^1.2.1
   camera: ^0.10.5+9
   image_picker: ^0.8.7
-  webview_flutter: ^4.7.0
+  flutter_inappwebview: ^6.1.5
   shared_preferences: ^2.2.2
-  permission_handler: ^11.3.0
+  permission_handler: ^11.3.1
   url_launcher: ^6.2.2
   intl: ^0.18.1
   model_viewer_plus: ^1.7.0

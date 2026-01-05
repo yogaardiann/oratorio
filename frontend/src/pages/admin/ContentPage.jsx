@@ -30,6 +30,7 @@ const ContentPage = () => {
     markerFile: null,
     mindFile: null,
     modelFile: null,
+    audioFIle: null,
   });
 
   useEffect(() => {
@@ -101,6 +102,7 @@ const ContentPage = () => {
       if (form.markerFile) fd.append("marker", form.markerFile);
       if (form.mindFile) fd.append("mind", form.mindFile);
       if (form.modelFile) fd.append("model", form.modelFile);
+      if (form.audioFile) fd.append("audio", form.audioFile);
 
       let res;
       if (editingItem && editingItem.id) {
@@ -360,6 +362,20 @@ const ContentPage = () => {
                       <div className="mt-2 text-xs text-gray-600">File: {form.modelFile.name}</div>
                     )}
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Audio Narasi (.mp3)</label>
+                  <input
+                    type="file"
+                    name="audioFile" // 🔥 Sesuaikan dengan handleFileChange
+                    accept=".mp3"
+                    onChange={handleFileChange}
+                    className="block w-full text-sm text-gray-600"
+                  />
+                  {form.audioFile && (
+                    <div className="mt-2 text-xs text-gray-600">File: {form.audioFile.name}</div>
+                )}
                 </div>
 
                 <div className="flex justify-end gap-3 pt-3">

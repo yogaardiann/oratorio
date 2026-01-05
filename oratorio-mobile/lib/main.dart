@@ -42,7 +42,7 @@ class MyApp extends StatelessWidget {
           return const ScanARPage(); 
         }, 
         // Rute untuk Scan Umum (General)
-        '/generalscan': (context) => const GeneralScanPage(), 
+        // '/generalscan': (context) => const GeneralScanPage(), 
         // Rute History
         '/history': (_) => const HistoryPage(), 
       },

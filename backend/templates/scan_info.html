@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oratorio | {{ dest.name }}</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black overflow-hidden">
+
+    <div id="startOverlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 px-6 text-center">
+        <h1 class="text-3xl font-bold text-teal-400 mb-2">{{ dest.name }}</h1>
+        <p class="text-slate-400 mb-8">Siapkan kamera untuk melihat keajaiban AR</p>
+        
+        <button id="startBtn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-4 px-10 rounded-full shadow-[0_0_20px_rgba(45,212,191,0.5)] transition-all transform active:scale-95">
+            MULAI PENGALAMAN 🚀
+        </button>
+    </div>
+
+    <audio id="narasiAudio" preload="auto">
+        <source src="/static/uploads/{{ dest.audio_file }}" type="audio/mpeg">
+    </audio>
+
+    <a-scene mindar-image="imageTargetSrc: /static/uploads/{{ dest.mind_file }};" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+        
+        <a-assets>
+            <a-asset-item id="model3D" src="/static/uploads/{{ dest.glb_model }}"></a-asset-item>
+        </a-assets>
+
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+        <a-entity mindar-image-target="targetIndex: 0">
+            <a-gltf-model src="#model3D" rotation="0 0 0" position="0 0 0" scale="0.1 0.1 0.1"></a-gltf-model>
+        </a-entity>
+    </a-scene>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const overlay = document.getElementById('startOverlay');
+        const audio = document.getElementById('narasiAudio');
+        const sceneEl = document.querySelector('a-scene');
+        const markerEntity = document.querySelector('[mindar-image-target]');
+
+        // A. Fungsi Membuka Kunci Suara Browser
+        startBtn.addEventListener('click', () => {
+            // "Memancing" browser agar mengizinkan suara di sesi ini
+            audio.play().then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+            }).catch(e => console.log("Audio unlock error:", e));
+            
+            overlay.style.display = 'none'; // Sembunyikan tombol
+        });
+
+        // B. Sinkronisasi Otomatis: Marker ADA = Suara ADA
+        markerEntity.addEventListener("targetFound", event => {
+            console.log("Marker terdeteksi: Memutar narasi...");
+            audio.currentTime = 0; // 🎯 Selalu ulang dari awal sesuai permintaanmu
+            audio.play();
+        });
+
+        // C. Sinkronisasi Otomatis: Marker HILANG = Suara MATI
+        markerEntity.addEventListener("targetLost", event => {
+            console.log("Marker hilang: Suara berhenti.");
+            audio.pause();
+            audio.currentTime = 0; // 🎯 Reset agar siap diputar dari nol lagi
+        });
+    </script>
+</body>
+</html>

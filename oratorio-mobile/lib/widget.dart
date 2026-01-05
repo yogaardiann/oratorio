@@ -62,12 +62,6 @@ class CustomBottomNavBar extends StatelessWidget {
             inactiveColor: inactiveColor,
           ),
 
-          /// CAMERA BUTTON (Center)
-          _buildCameraButton(
-            index: 2,
-            color: cameraColor,
-          ),
-
           _buildItem(
             index: 3,
             icon: Icons.history,
@@ -128,33 +122,4 @@ class CustomBottomNavBar extends StatelessWidget {
   }
 
   /// camera item (elevated)
-  Widget _buildCameraButton({
-    required int index,
-    required Color color,
-  }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => onItemTapped(index),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          child: Container(
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.5),
-                  blurRadius: 10,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 4),
-                )
-              ],
-            ),
-            padding: const EdgeInsets.all(14),
-            child: const Icon(Icons.camera_alt, color: Colors.white, size: 32),
-          ),
-        ),
-      ),
-    );
   }
-}
