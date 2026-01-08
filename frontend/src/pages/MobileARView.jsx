@@ -14,6 +14,7 @@ const MobileARView = () => {
   const [isStarted, setIsStarted] = useState(false);
   const audioRef = useRef(null);
   const [showSubtitle, setShowSubtitle] = useState(false);
+  const [currentSubtitle, setCurrentSubtitle] = useState("");
 
   useEffect(() => {
     axios.get(`${NGROK_URL}/api/wisata/${id}`)

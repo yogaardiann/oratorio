@@ -9,8 +9,8 @@ import 'package:http/http.dart' as http;
 
 
 // --- BASE URL ---
-// IP 192.168.1.17 harus bisa diakses HP dan laptop
-const String kBaseUrl = 'http://192.168.1.17:5000'; 
+// IP 192.168.222.112 harus bisa diakses HP dan laptop
+const String kBaseUrl = 'http://192.168.222.112:5000'; 
 const Color kPrimaryColor = Color(0xFF005954);
 
 class ARWebViewPage extends StatefulWidget {
@@ -42,7 +42,7 @@ class _ARWebViewPageState extends State<ARWebViewPage> {
     // 1. Tentukan URL MindAR
     // URL ini harus menuju ke MobileARView.jsx yang sudah dicompile dan di-host
     // Menggunakan IP lokal agar HP bisa mengaksesnya.
-    final webUrl = 'http://192.168.1.17:3000/mobile-ar/$_destinationId';
+    final webUrl = 'http://192.168.222.112:3000/mobile-ar/$_destinationId';
     
     // 2. Inisialisasi WebView Controller
     _controller = WebViewController()

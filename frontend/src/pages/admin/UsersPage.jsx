@@ -79,7 +79,6 @@ const UsersPage = () => {
                 <th className="p-3 text-sm font-medium">Nama</th>
                 <th className="p-3 text-sm font-medium">Email</th>
                 <th className="p-3 text-sm font-medium">Role</th>
-                <th className="p-3 text-sm font-medium text-right">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -92,12 +91,6 @@ const UsersPage = () => {
                     <td className="p-3 text-sm">{u.email ?? "-"}</td>
                     <td className="p-3 text-sm">{u.role ?? "-"}</td>
                     <td className="p-3 text-sm text-right">
-                      <button
-                        onClick={() => handleDelete(u)}
-                        className="inline-flex items-center gap-2 px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm"
-                      >
-                        Hapus
-                      </button>
                     </td>
                   </tr>
                 );

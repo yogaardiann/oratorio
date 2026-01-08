@@ -9,8 +9,8 @@ const Color kPrimaryColor = Color(0xFF005954);
 const Color kAccentColor = Color(0xFFC9E4E2);
 
 // ⚠️ WAJIB HTTPS (MindAR + Camera)
-const String NGROK_BASE = 'https://unreveling-marilynn-nontheistical.ngrok-free.dev';
-const String API_BASE = 'http://192.168.1.17:5000';
+const String NGROK_BASE = 'https://arcelia-unpronounceable-decretively.ngrok-free.dev';
+const String API_BASE = 'http://192.168.222.112:5000';
 
 // =============================================
 
