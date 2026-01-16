@@ -14,7 +14,7 @@ function RegisterPage() {
     localStorage.setItem("otp_data", JSON.stringify({ password }));
 
     try {
-      const res = await fetch("/api/otp/send", {
+      const res = await fetch("https://oratorio-production.up.railway.app/api/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

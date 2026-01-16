@@ -8,7 +8,7 @@ const ArPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const LOCAL_API_URL = `http://localhost:5000`;
+  const LOCAL_API_URL = `https://oratorio-production.up.railway.app`;
 
   useEffect(() => {
     console.log("ID dari URL:", id); // Debug

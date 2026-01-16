@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const NGROK_URL = "https://arcelia-unpronounceable-decretively.ngrok-free.dev";
+const NGROK_URL = "https://oratorio-production.up.railway.app";
 
 const MobileARView = () => {
   const { id } = useParams();
