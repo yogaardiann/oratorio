@@ -12,7 +12,7 @@ const Color kColorFooterBg = Color(0xFF121212);
 const Color kColorFooterText = Color(0xFFA7A7A7);
 
 // ⚠️ IP HOST / SERVER FLASK
-const String kBaseUrl = 'http://192.168.222.112:5000'; 
+const String kBaseUrl = 'https://oratorio-production.up.railway.app'; 
 
 class LoginPage extends StatefulWidget {
     const LoginPage({super.key});

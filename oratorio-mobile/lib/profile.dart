@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // --- BASE URL ---
 // 🎯 PASTIKAN IP INI SESUAI DENGAN IP FLASK ANDA SAAT INI
 // Mengganti dari 192.168.110.100 (lama) ke 192.168.222.1128 (berdasarkan log Anda)
-const String kBaseUrl = 'http://192.168.222.112:5000'; 
+const String kBaseUrl = 'https://oratorio-production.up.railway.app'; 
 const Color kPrimaryColor = Color(0xFF004D40); // Warna utama
 
 class ProfilePage extends StatefulWidget {

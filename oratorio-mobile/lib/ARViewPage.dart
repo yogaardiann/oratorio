@@ -10,7 +10,7 @@ import 'package:http/http.dart' as http;
 
 // --- BASE URL ---
 // IP 192.168.222.112 harus bisa diakses HP dan laptop
-const String kBaseUrl = 'http://192.168.222.112:5000'; 
+const String kBaseUrl = 'https://oratorio-production.up.railway.app'; 
 const Color kPrimaryColor = Color(0xFF005954);
 
 class ARWebViewPage extends StatefulWidget {

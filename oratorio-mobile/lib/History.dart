@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart'; // Untuk format tanggal/waktu
 
 // --- BASE URL ---
-const String kBaseUrl = 'http://192.168.222.112:5000'; 
+const String kBaseUrl = 'https://oratorio-production.up.railway.app'; 
 
 class HistoryPage extends StatefulWidget {
   // Menerima data user dari Dashboard (Diperlukan untuk mengambil history spesifik)

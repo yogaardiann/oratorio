@@ -36,7 +36,7 @@ class _RegisterPageState extends State<RegisterPage> {
       _message = null;
     });
 
-    final url = Uri.parse('http://192.168.222.112:5000/api/register');
+    final url = Uri.parse('https://oratorio-production.up.railway.app/api/register');
     try {
       final res = await http.post(
         url,
