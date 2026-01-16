@@ -3,8 +3,9 @@ import os
 
 def get_connection():
     return mysql.connector.connect(
-        host=os.getenv('DB_HOST', 'db'), 
-        user=os.getenv('DB_USER', 'root'),
-        password=os.getenv('DB_PASSWORD', 'rootpassword'),
-        database=os.getenv('DB_NAME', 'oratorio')
+        host=os.getenv('MYSQLHOST'), 
+        user=os.getenv('MYSQLUSER'),
+        password=os.getenv('MYSQLPASSWORD'),
+        database=os.getenv('MYSQLDATABASE'),
+        port=os.getenv('MYSQLPORT')
     )
