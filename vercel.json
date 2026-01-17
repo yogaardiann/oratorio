@@ -10,7 +10,7 @@
       "destination": "/frontend/build/static/$1"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/frontend/build/index.html"
     }
   ]
