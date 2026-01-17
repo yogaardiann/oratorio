@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../components/all-page/footer-page/footer';
 
-const API_BASE = 'https://oratorio-production.up.railway.app';
+const API_BASE = '';
 
 const HistoryPage = () => {
   const { user } = useContext(AuthContext);

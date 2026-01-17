@@ -1111,5 +1111,4 @@ def scan_destination(id):
     # Kirim data ke template HTML (kita buat di langkah 2)
     return render_template('scan_info.html', dest=dest)
 
-if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5000)
+app = app

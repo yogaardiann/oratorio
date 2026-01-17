@@ -5,7 +5,7 @@ import axios from 'axios';
 
 // 🔑 GANTI DENGAN URL NGROK ANDA YANG SEBENARNYA — TANPA SPASI!
 // Contoh valid: "https://7d3b-180-247-27-123.ngrok-free.app"
-const NGROK_URL = "https://arcelia-unpronounceable-decretively.ngrok-free.dev";
+const NGROK_URL = "";
 
 const ScanARPage = () => {
   const { id } = useParams();
