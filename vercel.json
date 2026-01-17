@@ -7,11 +7,15 @@
     },
     {
       "source": "/static/(.*)",
-      "destination": "/frontend/build/static/$1"
+      "destination": "frontend/build/static/$1"
     },
     {
-      "source": "/((?!api/).*)",
-      "destination": "/frontend/build/index.html"
+      "source": "/favicon.ico",
+      "destination": "frontend/build/favicon.ico"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "frontend/build/index.html"
     }
   ]
 }
