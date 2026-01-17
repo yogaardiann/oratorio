@@ -2,16 +2,16 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/:path*",
       "destination": "backend/api/index.py"
     },
     {
       "source": "/static/(.*)",
-      "destination": "/frontend/build/static/$1"
+      "destination": "frontend/build/static/$1"
     },
     {
       "source": "/((?!api/).*)",
-      "destination": "/frontend/build/index.html"
+      "destination": "frontend/build/index.html"
     }
   ]
 }
