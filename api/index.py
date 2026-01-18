@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify, send_from_directory, render_template
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from backend.api.db import get_connection  # Asumsi db.py ada
+from api.db import get_connection  # Asumsi db.py ada
 import jwt
 from functools import wraps
 from collections import defaultdict

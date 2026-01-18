@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from backend.api.db import get_connection
+from api.db import get_connection
 from datetime import datetime
 import json
 
