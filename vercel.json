@@ -1,20 +1,17 @@
 {
   "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "frontend/build"
-      }
-    }
-  ],
-  "routes": [
+      "source": "/api/:path*",
+      "destination": "backend/api/index.py"
+    },
     {
-      "src": "/((?!api/).*)",
-      "dest": "/frontend/build/index.html"
+      "source": "/static/(.*)",
+      "destination": "frontend/build/static/$1"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "frontend/build/index.html"
     }
   ]
 }
-
-//aku
