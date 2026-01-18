@@ -1,17 +1,17 @@
 {
   "version": 2,
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/backend/api/index.py"
+      "source": "/api/:path*",
+      "destination": "backend/api/index.py"
     },
     {
-      "src": "/static/(.*)",
-      "dest": "/frontend/build/static/$1"
+      "source": "/static/(.*)",
+      "destination": "frontend/build/static/$1"
     },
     {
-      "src": "/.*",
-      "dest": "/frontend/build/index.html"
+      "source": "/((?!api/).*)",
+      "destination": "frontend/build/index.html"
     }
   ]
 }
