@@ -133,7 +133,7 @@ def save_file(file):
 # -------------------------------------------------------------------
 
 # URL Ngrok Anda
-NGROK_BASE_URL = "hhttps://arcelia-unpronounceable-decretively.ngrok-free.dev"
+NGROK_BASE_URL = "https://arcelia-unpronounceable-decretively.ngrok-free.dev"
 
 @app.route('/mobile-ar/<int:destination_id>')
 def mobile_ar_proxy(destination_id):
