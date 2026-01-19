@@ -1,6 +1,11 @@
 {
   "version": 2,
   "outputDirectory": "frontend/build",
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "python3.9"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
