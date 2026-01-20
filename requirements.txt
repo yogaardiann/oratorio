@@ -7,3 +7,4 @@ redis
 python-dotenv==1.0.0
 pymysql
 gunicorn==21.2.0
+cryptography
